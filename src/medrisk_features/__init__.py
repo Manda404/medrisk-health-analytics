@@ -21,11 +21,11 @@ __license__ = "MIT"
 
 from medrisk_features.pipeline import FeatureEngineeringPipeline
 from medrisk_features.utils.exceptions import (
-    MedRiskError,
-    SchemaValidationError,
     FeatureEngineeringError,
-    MissingRequiredColumnError,
     InvalidConfigurationError,
+    MedRiskError,
+    MissingRequiredColumnError,
+    SchemaValidationError,
 )
 
 __all__ = [

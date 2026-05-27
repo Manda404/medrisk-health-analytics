@@ -1,5 +1,5 @@
 """Unit tests for MetabolicFeatureEngineer."""
-import pytest
+
 from medrisk_features.features import MetabolicFeatureEngineer
 
 

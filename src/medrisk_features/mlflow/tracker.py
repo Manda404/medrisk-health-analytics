@@ -240,6 +240,7 @@ def log_pipeline(
             )
 
             model_uri = f"runs:/{run_id}/{artifact_path}"
+            metadata_uri = f"runs:/{run_id}/pipeline_metadata"
 
             # -- Optionally register in Model Registry --------------------
             registered_version = None
@@ -250,6 +251,14 @@ def log_pipeline(
                 )
                 registered_version = registered_model.version
 
+            # Bug #6 fix: store MLflow URIs (not deleted temp file paths)
+            mlflow_artifact_paths = {
+                "pyfunc_model": model_uri,
+                "pipeline_metadata": metadata_uri,
+                "config": f"{metadata_uri}/config.json",
+                "feature_names": f"{metadata_uri}/feature_names.json",
+            }
+
     return PipelineLogResult(
         run_id=run_id,
         model_uri=model_uri,
@@ -257,7 +266,7 @@ def log_pipeline(
         registered_model_version=registered_version,
         feature_names=feature_names,
         config=config,
-        artifact_paths=artifact_paths,
+        artifact_paths=mlflow_artifact_paths,
     )
 
 
@@ -340,6 +349,7 @@ def _get_package_version() -> str:
     """Return the installed medrisk-features version string."""
     try:
         from medrisk_features import __version__
+
         return __version__
     except ImportError:
         return "unknown"

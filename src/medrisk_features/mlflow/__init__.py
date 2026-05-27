@@ -30,8 +30,8 @@ Usage
 from medrisk_features.mlflow.pyfunc_model import MedRiskPyFuncModel
 from medrisk_features.mlflow.tracker import (
     PipelineLogResult,
-    log_pipeline,
     load_pipeline,
+    log_pipeline,
     set_model_alias,
 )
 

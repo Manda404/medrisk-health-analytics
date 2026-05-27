@@ -1,6 +1,6 @@
 """Unit tests for ClinicalFeatureEngineer."""
+
 import pandas as pd
-import pytest
 from medrisk_features.features import ClinicalFeatureEngineer
 
 

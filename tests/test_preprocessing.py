@@ -1,27 +1,30 @@
 """Unit tests for preprocessing modules (categorical cleaning and leakage removal)."""
+
 import pandas as pd
 import pytest
 from medrisk_features.preprocessing import clean_categorical_variables, drop_leakage_columns
-from medrisk_features.logging import get_logger
 
 
 @pytest.fixture
 def raw_df():
-    return pd.DataFrame({
-        "Age": [40, 55],
-        "gender": ["Male", "Other"],
-        "employment_status": ["Retired", "Employed"],
-        "smoking_status": ["Former", "Never"],
-        "glucose_fasting": [110, 130],
-        "bmi": [27, 32],
-        "diabetes_stage": ["Stage 1", "Stage 2"],
-        "diabetes_risk_score": [0.7, 0.9],
-    })
+    return pd.DataFrame(
+        {
+            "Age": [40, 55],
+            "gender": ["Male", "Other"],
+            "employment_status": ["Retired", "Employed"],
+            "smoking_status": ["Former", "Never"],
+            "glucose_fasting": [110, 130],
+            "bmi": [27, 32],
+            "diabetes_stage": ["Stage 1", "Stage 2"],
+            "diabetes_risk_score": [0.7, 0.9],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Categorical cleaning tests
 # ---------------------------------------------------------------------------
+
 
 class TestCategoricalCleaning:
     def test_gender_other_mapped_to_unknown(self, raw_df, logger):
@@ -53,6 +56,7 @@ class TestCategoricalCleaning:
 # Leakage removal tests
 # ---------------------------------------------------------------------------
 
+
 class TestLeakageRemoval:
     def test_leakage_columns_dropped(self, raw_df, logger):
         df_out = drop_leakage_columns(raw_df, logger=logger)
@@ -65,11 +69,13 @@ class TestLeakageRemoval:
         assert "bmi" in df_out.columns
 
     def test_no_leakage_columns_no_change(self, logger):
-        df_clean = pd.DataFrame({
-            "Age": [40],
-            "glucose_fasting": [110],
-            "bmi": [27],
-        })
+        df_clean = pd.DataFrame(
+            {
+                "Age": [40],
+                "glucose_fasting": [110],
+                "bmi": [27],
+            }
+        )
         df_out = drop_leakage_columns(df_clean, logger=logger)
         assert set(df_out.columns) == set(df_clean.columns)
 

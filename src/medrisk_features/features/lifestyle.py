@@ -1,6 +1,7 @@
-import numpy as np
-from pandas import DataFrame
+from pandas import DataFrame, Series
+
 from medrisk_features.logging import get_logger
+from medrisk_features.utils.constants import WHO_ACTIVITY_MIN_WEEKLY
 
 
 class LifestyleFeatureEngineer:
@@ -35,16 +36,14 @@ class LifestyleFeatureEngineer:
         }
 
         if not required.issubset(df.columns):
-            self.logger.warning(
-                "Missing columns for lifestyle_score — score not created."
-            )
+            self.logger.warning("Missing columns for lifestyle_score — score not created.")
             return df
 
         # Vectorized scoring — avoids slow row-by-row apply()
         # Each criterion contributes 2 points (max total = 10)
-        score = (
+        score: Series = (
             (df["diet_score"] >= 6).astype(int) * 2
-            + (df["physical_activity_minutes_per_week"] >= 150).astype(int) * 2
+            + (df["physical_activity_minutes_per_week"] >= WHO_ACTIVITY_MIN_WEEKLY).astype(int) * 2
             + ((df["sleep_hours_per_day"] >= 7) & (df["sleep_hours_per_day"] <= 9)).astype(int) * 2
             + (df["alcohol_consumption_per_week"] <= 2).astype(int) * 2
             + (df["smoking_status"] == "Never").astype(int) * 2
@@ -60,8 +59,7 @@ class LifestyleFeatureEngineer:
         if {"sleep_hours_per_day", "screen_time_hours_per_day"}.issubset(df.columns):
             # Ratio of sleep to (screen_time + 1) to avoid division by zero
             df["sleep_efficiency"] = (
-                df["sleep_hours_per_day"]
-                / (df["screen_time_hours_per_day"] + 1)
+                df["sleep_hours_per_day"] / (df["screen_time_hours_per_day"] + 1)
             ).clip(upper=2)
         else:
             self.logger.warning(

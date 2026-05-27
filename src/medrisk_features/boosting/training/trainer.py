@@ -33,7 +33,6 @@ import os
 import tempfile
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 from medrisk_features.boosting.config.schemas import (
@@ -85,14 +84,12 @@ def train_boosting_model(
     ...     experiment_name="/Shared/experiments/boosting",
     ... )
     """
-    try:
-        import mlflow
-        import mlflow.pyfunc
-    except ImportError as exc:
+    import importlib.util
+
+    if importlib.util.find_spec("mlflow") is None:
         raise ImportError(
-            "mlflow is required for training. "
-            "Install with: pip install medrisk-features[mlflow]"
-        ) from exc
+            "mlflow is required for training. " "Install with: pip install medrisk-features[mlflow]"
+        )
 
     # ── Resolve configuration ─────────────────────────────────────────────────
     if config is None:
@@ -111,16 +108,24 @@ def train_boosting_model(
     if config.categorical_columns:
         categorical_cols = config.categorical_columns
 
-    feature_cols = numeric_cols + categorical_cols
+    raw_feature_cols = numeric_cols + categorical_cols
 
     # ── Build feature matrix and target ──────────────────────────────────────
-    X = df[feature_cols].copy()
+    X = df[raw_feature_cols].copy()
     y = df[config.target_column].copy()
 
     # ── Split dataset ─────────────────────────────────────────────────────────
-    X_train, X_test, y_train, y_test = _split_data(X, y, config)
+    # In Databricks/Unity Catalog workflows, the real holdout test set should
+    # usually be materialized as its own table before this trainer runs.
+    if config.use_internal_test_split:
+        X_train, X_test, y_train, y_test = _split_data(X, y, config)
+    else:
+        X_train, y_train = X, y
+        X_test = y_test = None
+
     X_train, X_valid, y_train, y_valid = _split_data(
-        X_train, y_train,
+        X_train,
+        y_train,
         config,
         test_size=config.validation_size,
     )
@@ -136,12 +141,11 @@ def train_boosting_model(
 
     X_train_t = preprocessor.fit_transform(X_train)
     X_valid_t = preprocessor.transform(X_valid)
-    X_test_t  = preprocessor.transform(X_test)
+    transformed_feature_cols = preprocessor.feature_names_out
 
     # Wrap back as DataFrame (preserves feature names for tree models)
-    X_train_df = pd.DataFrame(X_train_t, columns=feature_cols, index=X_train.index)
-    X_valid_df = pd.DataFrame(X_valid_t, columns=feature_cols, index=X_valid.index)
-    X_test_df  = pd.DataFrame(X_test_t,  columns=feature_cols, index=X_test.index)
+    X_train_df = pd.DataFrame(X_train_t, columns=transformed_feature_cols, index=X_train.index)
+    X_valid_df = pd.DataFrame(X_valid_t, columns=transformed_feature_cols, index=X_valid.index)
 
     # ── Train the boosting model ──────────────────────────────────────────────
     model = BoostingModelFactory.create(
@@ -155,8 +159,12 @@ def train_boosting_model(
     splits = {
         "train": {"X": X_train_df, "y": y_train},
         "valid": {"X": X_valid_df, "y": y_valid},
-        "test":  {"X": X_test_df,  "y": y_test},
     }
+    if X_test is not None and y_test is not None:
+        X_test_t = preprocessor.transform(X_test)
+        X_test_df = pd.DataFrame(X_test_t, columns=transformed_feature_cols, index=X_test.index)
+        splits["test"] = {"X": X_test_df, "y": y_test}
+
     metrics = evaluate_splits(model, splits, task_type=config.task_type.value)
 
     # ── Log to MLflow ─────────────────────────────────────────────────────────
@@ -164,7 +172,8 @@ def train_boosting_model(
         model=model,
         preprocessor=preprocessor,
         config=config,
-        feature_names=feature_cols,
+        raw_feature_names=raw_feature_cols,
+        transformed_feature_names=transformed_feature_cols,
         metrics=metrics,
         df_sample=X_train.head(10),
     )
@@ -176,6 +185,7 @@ def train_boosting_model(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
 
 def _split_data(
     X: pd.DataFrame,
@@ -192,7 +202,8 @@ def _split_data(
 
     if strategy == SplitStrategy.STRATIFIED:
         return train_test_split(
-            X, y,
+            X,
+            y,
             test_size=size,
             random_state=config.random_state,
             stratify=y,
@@ -201,12 +212,15 @@ def _split_data(
         # Temporal split: last `size` fraction is test
         split_idx = int(len(X) * (1 - size))
         return (
-            X.iloc[:split_idx], X.iloc[split_idx:],
-            y.iloc[:split_idx], y.iloc[split_idx:],
+            X.iloc[:split_idx],
+            X.iloc[split_idx:],
+            y.iloc[:split_idx],
+            y.iloc[split_idx:],
         )
     else:
         return train_test_split(
-            X, y,
+            X,
+            y,
             test_size=size,
             random_state=config.random_state,
         )
@@ -216,7 +230,8 @@ def _log_to_mlflow(
     model,
     preprocessor: TabularPreprocessor,
     config: TrainingConfig,
-    feature_names: list,
+    raw_feature_names: list,
+    transformed_feature_names: list,
     metrics: dict,
     df_sample: Optional[pd.DataFrame] = None,
 ) -> TrainingResult:
@@ -228,17 +243,18 @@ def _log_to_mlflow(
     - model.{json|cbm|txt}    : native boosting model
     - preprocessor.pkl        : fitted TabularPreprocessor
     - config.json             : full training configuration
-    - feature_names.json      : ordered feature column list
+    - feature_names.json      : ordered raw input feature column list
+    - transformed_feature_names.json : ordered model feature column list
     - feature_importance.csv  : feature importance ranking
     - The pyfunc model (mlflow.pyfunc.log_model)
     """
     import mlflow
     import mlflow.pyfunc
 
+    from medrisk_features import __version__
     from medrisk_features.boosting.pyfunc.boosting_pyfunc_model import (
         get_boosting_pyfunc_class,
     )
-    from medrisk_features import __version__
 
     mlflow.set_experiment(config.experiment_name)
 
@@ -249,7 +265,7 @@ def _log_to_mlflow(
             config.model_type.lower(), ".pkl"
         )
         model_path = os.path.join(tmpdir, f"model{model_ext}")
-        model.save(model_path.replace(model_ext, ""))  # save() adds ext
+        model.save(os.path.splitext(model_path)[0])  # Bug #7 fix: safe extension removal
 
         # ── Serialize preprocessor ────────────────────────────────────────
         preprocessor_path = os.path.join(tmpdir, "preprocessor.pkl")
@@ -258,13 +274,15 @@ def _log_to_mlflow(
         # ── Config JSON ───────────────────────────────────────────────────
         config_dict = config.to_mlflow_params()
         config_dict["medrisk_version"] = __version__
-        config_dict["model_type"]      = config.model_type
+        config_dict["model_type"] = config.model_type
         config_dict["id_columns_list"] = config.id_columns
+        config_dict["model_version"] = "unregistered"
+        config_dict["registered_model_name"] = config.registered_model_name
 
         # Priority thresholds needed at inference
-        config_dict["priority_high_threshold"]   = config.priority_high_threshold
-        config_dict["priority_medium_threshold"]  = config.priority_medium_threshold
-        config_dict["id_columns"]                = config.id_columns
+        config_dict["priority_high_threshold"] = config.priority_high_threshold
+        config_dict["priority_medium_threshold"] = config.priority_medium_threshold
+        config_dict["id_columns"] = config.id_columns
 
         config_path = os.path.join(tmpdir, "config.json")
         with open(config_path, "w", encoding="utf-8") as f:
@@ -273,10 +291,14 @@ def _log_to_mlflow(
         # ── Feature names JSON ────────────────────────────────────────────
         fn_path = os.path.join(tmpdir, "feature_names.json")
         with open(fn_path, "w", encoding="utf-8") as f:
-            json.dump(feature_names, f, indent=2)
+            json.dump(raw_feature_names, f, indent=2)
+
+        transformed_fn_path = os.path.join(tmpdir, "transformed_feature_names.json")
+        with open(transformed_fn_path, "w", encoding="utf-8") as f:
+            json.dump(transformed_feature_names, f, indent=2)
 
         # ── Feature importance CSV ────────────────────────────────────────
-        fi_path = os.path.join(tmpdir, "feature_importance.csv")
+        fi_path: Optional[str] = os.path.join(tmpdir, "feature_importance.csv")
         try:
             fi = model.get_feature_importance()
             fi.to_csv(fi_path)
@@ -285,9 +307,9 @@ def _log_to_mlflow(
 
         # ── Start MLflow run ──────────────────────────────────────────────
         run_tags = {
-            "model_type":       config.model_type,
-            "task_type":        config.task_type.value,
-            "medrisk_version":  __version__,
+            "model_type": config.model_type,
+            "task_type": config.task_type.value,
+            "medrisk_version": __version__,
         }
 
         with mlflow.start_run(run_name=config.run_name, tags=run_tags) as run:
@@ -304,8 +326,9 @@ def _log_to_mlflow(
             mlflow.log_metrics(metrics)
 
             # Log raw artifacts
-            mlflow.log_artifact(config_path,      artifact_path="pipeline_metadata")
-            mlflow.log_artifact(fn_path,           artifact_path="pipeline_metadata")
+            mlflow.log_artifact(config_path, artifact_path="pipeline_metadata")
+            mlflow.log_artifact(fn_path, artifact_path="pipeline_metadata")
+            mlflow.log_artifact(transformed_fn_path, artifact_path="pipeline_metadata")
             if fi_path and os.path.exists(fi_path):
                 mlflow.log_artifact(fi_path, artifact_path="pipeline_metadata")
 
@@ -315,11 +338,11 @@ def _log_to_mlflow(
             if df_sample is not None:
                 try:
                     from mlflow.models.signature import infer_signature
+
                     # Build a dummy prediction to infer output schema
                     dummy_proba = model.predict_proba(
                         pd.DataFrame(
-                            preprocessor.transform(df_sample),
-                            columns=feature_names
+                            preprocessor.transform(df_sample), columns=transformed_feature_names
                         )
                     )
                     signature = infer_signature(df_sample, dummy_proba)
@@ -335,10 +358,11 @@ def _log_to_mlflow(
                 artifact_path=config.artifact_path,
                 python_model=pyfunc_instance,
                 artifacts={
-                    "model":         model_path,
-                    "preprocessor":  preprocessor_path,
-                    "config":        config_path,
+                    "model": model_path,
+                    "preprocessor": preprocessor_path,
+                    "config": config_path,
                     "feature_names": fn_path,
+                    "transformed_feature_names": transformed_fn_path,
                 },
                 signature=signature,
                 input_example=input_example,
@@ -352,6 +376,7 @@ def _log_to_mlflow(
             )
 
             model_uri = f"runs:/{run_id}/{config.artifact_path}"
+            artifact_base_uri = f"runs:/{run_id}/pipeline_metadata"
 
             # Register in Model Registry (optional)
             registered_version = None
@@ -362,20 +387,18 @@ def _log_to_mlflow(
                 )
                 registered_version = reg.version
 
-                # Store model_version in config so it travels with artifacts
-                config_dict["model_version"] = registered_version
-
     return TrainingResult(
         run_id=run_id,
         model_uri=model_uri,
         registered_model_name=config.registered_model_name,
         registered_model_version=registered_version,
         metrics=metrics,
-        feature_names=feature_names,
+        feature_names=raw_feature_names,
         artifact_paths={
-            "model":         model_path,
-            "preprocessor":  preprocessor_path,
-            "config":        config_path,
-            "feature_names": fn_path,
+            "pyfunc_model": model_uri,
+            "pipeline_metadata": artifact_base_uri,
+            "config": f"{artifact_base_uri}/config.json",
+            "feature_names": f"{artifact_base_uri}/feature_names.json",
+            "transformed_feature_names": f"{artifact_base_uri}/transformed_feature_names.json",
         },
     )

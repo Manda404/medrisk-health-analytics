@@ -2,3 +2,11 @@ __pycache__
 # Poetry / packaging
 dist/
 *.egg-info/
+.ruff_cache
+.mypy_cache
+.pytest_cache
+.venv
+.coverage
+data
+.databricks/
+.vscode

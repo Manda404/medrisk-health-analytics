@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+
 from medrisk_features.logging import get_logger
 
 
@@ -34,6 +35,15 @@ class DemographicsFeatureEngineer:
         """
         self.age_group_strategy = age_group_strategy
         self.logger = logger or get_logger(self.__class__.__name__)
+        self._age_column = "Age"
+
+    def _resolve_age_column(self, df: DataFrame) -> str:
+        """Accept both historical `Age` and raw CSV `age` column names."""
+        if "Age" in df.columns:
+            return "Age"
+        if "age" in df.columns:
+            return "age"
+        raise KeyError("Column 'Age' or 'age' is required for demographic features.")
 
     # ------------------------------------------------------------------
     # Age grouping strategies
@@ -41,14 +51,14 @@ class DemographicsFeatureEngineer:
     def _create_age_group_detailed(self, df: DataFrame) -> DataFrame:
         bins = [0, 30, 40, 50, 60, 70, 80, np.inf]
         labels = ["<30", "30–39", "40–49", "50–59", "60–69", "70–79", "80+"]
-        df["age_group"] = pd.cut(df["Age"], bins=bins, labels=labels, right=False)
+        df["age_group"] = pd.cut(df[self._age_column], bins=bins, labels=labels, right=False)
         return df
 
     def _create_age_group_coarse(self, df: DataFrame) -> DataFrame:
-        
+
         bins = [0, 30, 60, np.inf]
         labels = ["Young", "Adult", "Senior"]
-        df["age_group"] = pd.cut(df["Age"], bins=bins, labels=labels, right=False)
+        df["age_group"] = pd.cut(df[self._age_column], bins=bins, labels=labels, right=False)
         return df
 
     def _create_age_group(self, df: DataFrame) -> DataFrame:
@@ -85,14 +95,14 @@ class DemographicsFeatureEngineer:
         df = df.copy()
         self.logger.info("Creating demographic features...")
 
-        # 1. Age groups
-        if "Age" not in df.columns:
-            raise KeyError("Column 'Age' is required for demographic features.")
+        # 1. Age groups. Public datasets often use `age`; older package
+        # examples used `Age`, so the transformer accepts both.
+        self._age_column = self._resolve_age_column(df)
 
         df = self._create_age_group(df)
 
         # 2. Age non-linearity
-        df["age_squared"] = df["Age"] ** 2
+        df["age_squared"] = df[self._age_column] ** 2
 
         # 3. Socio-economic vulnerability
         if {"income_level", "education_level"}.issubset(df.columns):

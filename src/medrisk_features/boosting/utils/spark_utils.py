@@ -35,7 +35,7 @@ def is_spark_dataframe(obj: object) -> bool:
 
 
 def to_pandas(
-    df: Union[pd.DataFrame, "SparkDataFrame"],
+    df: Union[pd.DataFrame, SparkDataFrame],
     warn_rows: int = _LARGE_DF_ROW_WARNING,
     sample_size: Optional[int] = None,
 ) -> pd.DataFrame:
@@ -121,8 +121,7 @@ def write_to_delta(
     """
     spark_df = to_spark(df, spark=spark)
     (
-        spark_df.write
-        .format("delta")
+        spark_df.write.format("delta")
         .mode(mode)
         .option("mergeSchema", "true")
         .saveAsTable(table_name)
@@ -134,7 +133,7 @@ def read_from_delta(
     spark=None,
     convert_to_pandas: bool = True,
     sample_size: Optional[int] = None,
-) -> Union[pd.DataFrame, "SparkDataFrame"]:
+) -> Union[pd.DataFrame, SparkDataFrame]:
     """
     Read a Unity Catalog Delta table.
 
@@ -168,6 +167,7 @@ def read_from_delta(
 # Private helpers
 # ---------------------------------------------------------------------------
 
+
 def _spark_to_pandas(
     spark_df,
     warn_rows: int = _LARGE_DF_ROW_WARNING,
@@ -200,6 +200,7 @@ def _get_active_spark_session():
     """Return the active SparkSession or None if not in a Spark environment."""
     try:
         from pyspark.sql import SparkSession
+
         return SparkSession.getActiveSession()
     except ImportError:
         return None

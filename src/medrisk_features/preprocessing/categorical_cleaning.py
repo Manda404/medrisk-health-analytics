@@ -1,4 +1,5 @@
 from pandas import DataFrame
+
 from medrisk_features.logging import get_logger
 
 
@@ -45,9 +46,7 @@ def clean_categorical_variables(
         )
 
     if "smoking_status" in df.columns:
-        df["smoking_status"] = df["smoking_status"].replace(
-            {"Former": "Ex-Smoker"}
-        )
+        df["smoking_status"] = df["smoking_status"].replace({"Former": "Ex-Smoker"})
 
     logger.info("Categorical variables cleaned successfully.")
     return df

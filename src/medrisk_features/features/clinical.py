@@ -1,5 +1,6 @@
 import numpy as np
 from pandas import DataFrame
+
 from medrisk_features.logging import get_logger
 
 
@@ -44,20 +45,16 @@ class ClinicalFeatureEngineer:
         # --------------------------------------------------
         if {"hdl_cholesterol", "ldl_cholesterol"}.issubset(df.columns):
             # HDL/LDL ratio: higher is protective
-            df["lipid_ratio_hdl_ldl"] = (
-                df["hdl_cholesterol"]
-                / df["ldl_cholesterol"].replace(0, np.nan)
+            df["lipid_ratio_hdl_ldl"] = df["hdl_cholesterol"] / df["ldl_cholesterol"].replace(
+                0, np.nan
             )
         else:
-            self.logger.warning(
-                "HDL or LDL cholesterol missing — lipid_ratio_hdl_ldl not created."
-            )
+            self.logger.warning("HDL or LDL cholesterol missing — lipid_ratio_hdl_ldl not created.")
 
         if {"cholesterol_total", "hdl_cholesterol"}.issubset(df.columns):
             # Total cholesterol / HDL ratio: cardiovascular risk marker
-            df["cholesterol_hdl_ratio"] = (
-                df["cholesterol_total"]
-                / df["hdl_cholesterol"].replace(0, np.nan)
+            df["cholesterol_hdl_ratio"] = df["cholesterol_total"] / df["hdl_cholesterol"].replace(
+                0, np.nan
             )
         else:
             self.logger.warning(
@@ -78,9 +75,7 @@ class ClinicalFeatureEngineer:
         # Glycemic variability (postprandial excursion)
         # --------------------------------------------------
         if {"glucose_postprandial", "glucose_fasting"}.issubset(df.columns):
-            df["glucose_variability"] = (
-                df["glucose_postprandial"] - df["glucose_fasting"]
-            )
+            df["glucose_variability"] = df["glucose_postprandial"] - df["glucose_fasting"]
         else:
             self.logger.warning(
                 "Postprandial or fasting glucose missing — glucose_variability not created."

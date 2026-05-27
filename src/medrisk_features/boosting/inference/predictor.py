@@ -25,7 +25,7 @@ Usage (Databricks notebook)
 
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import Optional
 
 import pandas as pd
 
@@ -84,7 +84,6 @@ def predict_with_registered_model(
         ) from exc
 
     from medrisk_features.boosting.utils.spark_utils import (
-        is_spark_dataframe,
         read_from_delta,
         to_pandas,
         write_to_delta,
@@ -99,6 +98,8 @@ def predict_with_registered_model(
     if input_df is not None:
         df_pandas = to_pandas(input_df)
     else:
+        if input_table is None:
+            raise ValueError("input_table must be provided when input_df is None.")
         df_pandas = read_from_delta(
             table_name=input_table,
             spark=spark,

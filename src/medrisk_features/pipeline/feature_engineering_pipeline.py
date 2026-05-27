@@ -1,19 +1,20 @@
 from pandas import DataFrame
 
+from medrisk_features.features import (
+    BehavioralFeatureEngineer,
+    ClinicalFeatureEngineer,
+    DemographicsFeatureEngineer,
+    LifestyleFeatureEngineer,
+    MedicalFeatureEngineer,
+    MetabolicFeatureEngineer,
+)
 from medrisk_features.logging import get_logger
 from medrisk_features.preprocessing import (
     clean_categorical_variables,
     drop_leakage_columns,
 )
-from medrisk_features.features import (
-    DemographicsFeatureEngineer,
-    MedicalFeatureEngineer,
-    ClinicalFeatureEngineer,
-    MetabolicFeatureEngineer,
-    BehavioralFeatureEngineer,
-    LifestyleFeatureEngineer,
-)
 from medrisk_features.validation import DataSchemaValidator
+
 
 class FeatureEngineeringPipeline:
     """
@@ -53,6 +54,7 @@ class FeatureEngineeringPipeline:
             package logger is created and used.
         """
         self.logger = logger or get_logger(self.__class__.__name__)
+        self.age_group_strategy = age_group_strategy
         self.validate_schema = validate_schema
         self.schema_validator = DataSchemaValidator(logger=self.logger)
 
@@ -66,6 +68,21 @@ class FeatureEngineeringPipeline:
         self.metabolic = MetabolicFeatureEngineer(logger=self.logger)
         self.behavioral = BehavioralFeatureEngineer(logger=self.logger)
         self.lifestyle = LifestyleFeatureEngineer(logger=self.logger)
+
+    def __getstate__(self) -> dict:
+        """Return a pickle-safe representation for MLflow artifacts."""
+        return {
+            "age_group_strategy": self.age_group_strategy,
+            "validate_schema": self.validate_schema,
+        }
+
+    def __setstate__(self, state: dict) -> None:
+        """Rebuild runtime-only objects such as loggers after unpickling."""
+        FeatureEngineeringPipeline.__init__(
+            self,
+            age_group_strategy=state.get("age_group_strategy", "detailed"),
+            validate_schema=state.get("validate_schema", True),
+        )
 
     def transform(self, df: DataFrame) -> DataFrame:
         """
@@ -129,7 +146,13 @@ class FeatureEngineeringPipeline:
         # --------------------------------------------------
         df_enriched = self.lifestyle.transform(df_enriched)
 
-        self.logger.info(
-            f"Pipeline completed successfully — total columns: {df_enriched.shape[1]}"
-        )
+        # Spark and MLflow model signatures handle plain Python string objects
+        # more predictably than pandas CategoricalDtype columns.
+        category_columns: list[str] = df_enriched.select_dtypes(
+            include=["category"]
+        ).columns.tolist()
+        for column in category_columns:
+            df_enriched[column] = df_enriched[column].astype(object)
+
+        self.logger.info(f"Pipeline completed successfully — total columns: {df_enriched.shape[1]}")
         return df_enriched

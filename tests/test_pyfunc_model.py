@@ -19,13 +19,12 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-
 from medrisk_features.mlflow.pyfunc_model import MedRiskPyFuncModel
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_pipeline_mock(full_df):
     """Return a lightweight mock pipeline that calls the real transform."""
@@ -61,6 +60,7 @@ def _build_artifacts(pipeline, tmp_dir: str) -> dict:
 # ---------------------------------------------------------------------------
 # Tests: MedRiskPyFuncModel
 # ---------------------------------------------------------------------------
+
 
 class TestMedRiskPyFuncModel:
     def test_load_context_deserializes_pipeline(self, full_df, logger):
@@ -150,6 +150,7 @@ class TestMedRiskPyFuncModel:
 # Tests: PipelineLogResult dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineLogResult:
     def test_dataclass_fields(self):
         from medrisk_features.mlflow.tracker import PipelineLogResult
@@ -181,6 +182,7 @@ class TestPipelineLogResult:
 # ---------------------------------------------------------------------------
 # Tests: ImportError when mlflow is not available
 # ---------------------------------------------------------------------------
+
 
 class TestImportGuards:
     def test_load_pipeline_raises_import_error_without_mlflow(self):

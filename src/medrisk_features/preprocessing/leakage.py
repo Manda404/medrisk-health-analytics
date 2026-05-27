@@ -1,6 +1,6 @@
 from pandas import DataFrame
-from medrisk_features.logging import get_logger
 
+from medrisk_features.logging import get_logger
 
 LEAKAGE_COLUMNS = {
     "diabetes_stage",
@@ -39,9 +39,7 @@ def drop_leakage_columns(
     present_columns = [c for c in LEAKAGE_COLUMNS if c in df.columns]
 
     if present_columns:
-        logger.warning(
-            f"Removing leakage columns: {present_columns}"
-        )
+        logger.warning(f"Removing leakage columns: {present_columns}")
         df = df.drop(columns=present_columns)
     else:
         logger.info("No leakage columns detected.")

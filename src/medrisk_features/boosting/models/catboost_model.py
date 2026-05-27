@@ -10,14 +10,12 @@ Installation: pip install medrisk-features[catboost]
 
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
 from medrisk_features.boosting.models.base import BaseBoostingModel
-
 
 _CATBOOST_DEFAULTS: Dict[str, Any] = {
     "iterations": 300,
@@ -45,7 +43,7 @@ class CatBoostModel(BaseBoostingModel):
     params : dict or None
         CatBoost hyperparameters. Merged with _CATBOOST_DEFAULTS.
     task_type : str
-        'binary_classification', 'multiclass_classification', or 'regression'.
+        'binary_classification' or 'multiclass_classification'.
     cat_features : list of str or None
         Column names of categorical features passed to CatBoost natively.
         When provided, ordinal encoding in the preprocessor is unnecessary.
@@ -66,7 +64,7 @@ class CatBoostModel(BaseBoostingModel):
     def _build_model(self) -> Any:
         """Instantiate the correct CatBoost estimator based on task type."""
         try:
-            from catboost import CatBoostClassifier, CatBoostRegressor
+            from catboost import CatBoostClassifier
         except ImportError as exc:
             raise ImportError(
                 "catboost is required. Install with: pip install medrisk-features[catboost]"
@@ -74,12 +72,15 @@ class CatBoostModel(BaseBoostingModel):
 
         p = dict(self.params)
 
-        if self.task_type == "regression":
-            return CatBoostRegressor(**p)
-        elif self.task_type == "multiclass_classification":
+        if self.task_type == "multiclass_classification":
             return CatBoostClassifier(loss_function="MultiClass", **p)
-        else:
+        if self.task_type == "binary_classification":
             return CatBoostClassifier(loss_function="Logloss", **p)
+
+        raise ValueError(
+            f"Unsupported task_type '{self.task_type}'. "
+            "Supported values: binary_classification, multiclass_classification."
+        )
 
     def fit(
         self,
@@ -87,21 +88,20 @@ class CatBoostModel(BaseBoostingModel):
         y_train: pd.Series,
         X_valid: Optional[pd.DataFrame] = None,
         y_valid: Optional[pd.Series] = None,
-    ) -> "CatBoostModel":
+    ) -> CatBoostModel:
         self._feature_names = X_train.columns.tolist()
         self._model = self._build_model()
 
         # Resolve categorical feature indices for CatBoost
         cat_feature_indices = [
-            X_train.columns.get_loc(c)
-            for c in self.cat_features
-            if c in X_train.columns
+            X_train.columns.get_loc(c) for c in self.cat_features if c in X_train.columns
         ]
 
         fit_kwargs: Dict[str, Any] = {"cat_features": cat_feature_indices}
         if X_valid is not None and y_valid is not None:
             try:
                 from catboost import Pool
+
                 eval_set = Pool(X_valid, y_valid, cat_features=cat_feature_indices)
                 fit_kwargs["eval_set"] = eval_set
             except ImportError:
@@ -125,9 +125,8 @@ class CatBoostModel(BaseBoostingModel):
     def get_feature_importance(self) -> pd.Series:
         self._check_is_fitted()
         importance = self._model.get_feature_importance()
-        return (
-            pd.Series(importance, index=self._feature_names, name="importance")
-            .sort_values(ascending=False)
+        return pd.Series(importance, index=self._feature_names, name="importance").sort_values(
+            ascending=False
         )
 
     def save(self, path: str) -> None:
@@ -138,7 +137,24 @@ class CatBoostModel(BaseBoostingModel):
         self._model.save_model(path)
 
     @classmethod
-    def load(cls, path: str) -> "CatBoostModel":
+    def load(
+        cls,
+        path: str,
+        task_type: str = "binary_classification",
+        cat_features: Optional[List[str]] = None,
+    ) -> "CatBoostModel":
+        """
+        Deserialize a model from disk.
+
+        Parameters
+        ----------
+        path : str
+            File path used in save() (without extension).
+        task_type : str
+            Task type used during training. Defaults to 'binary_classification'.
+        cat_features : list of str or None
+            Categorical feature names (needed if predict with named cat_features).
+        """
         try:
             from catboost import CatBoostClassifier
         except ImportError as exc:
@@ -151,9 +167,10 @@ class CatBoostModel(BaseBoostingModel):
 
         instance = cls.__new__(cls)
         BaseBoostingModel.__init__(instance)
+        instance.task_type = task_type  # Bug #1 fix: required by predict_proba()
+        instance.cat_features = cat_features or []
         instance._model = CatBoostClassifier()
         instance._model.load_model(path)
         instance._is_fitted = True
         instance._feature_names = []
-        instance.cat_features = []
         return instance

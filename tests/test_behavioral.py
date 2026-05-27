@@ -1,4 +1,5 @@
 """Unit tests for BehavioralFeatureEngineer."""
+
 import pandas as pd
 import pytest
 from medrisk_features.features import BehavioralFeatureEngineer
@@ -37,10 +38,12 @@ def test_physical_activity_adequate_capped_at_3(logger):
 
 def test_sedentary_risk_high_screen_low_activity(logger):
     """High screen time + low activity → sedentary_risk = 1."""
-    df = pd.DataFrame({
-        "screen_time_hours_per_day": [8],
-        "physical_activity_minutes_per_week": [30],
-    })
+    df = pd.DataFrame(
+        {
+            "screen_time_hours_per_day": [8],
+            "physical_activity_minutes_per_week": [30],
+        }
+    )
     fe = BehavioralFeatureEngineer(logger=logger)
     df_out = fe.transform(df)
     assert df_out["sedentary_risk"].iloc[0] == 1
@@ -48,10 +51,12 @@ def test_sedentary_risk_high_screen_low_activity(logger):
 
 def test_sedentary_risk_active_person(logger):
     """Low screen + adequate activity → sedentary_risk = 0."""
-    df = pd.DataFrame({
-        "screen_time_hours_per_day": [2],
-        "physical_activity_minutes_per_week": [200],
-    })
+    df = pd.DataFrame(
+        {
+            "screen_time_hours_per_day": [2],
+            "physical_activity_minutes_per_week": [200],
+        }
+    )
     fe = BehavioralFeatureEngineer(logger=logger)
     df_out = fe.transform(df)
     assert df_out["sedentary_risk"].iloc[0] == 0

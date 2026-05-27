@@ -17,7 +17,6 @@ import pandas as pd
 
 from medrisk_features.boosting.models.base import BaseBoostingModel
 
-
 _LIGHTGBM_DEFAULTS: Dict[str, Any] = {
     "n_estimators": 300,
     "learning_rate": 0.05,
@@ -43,7 +42,7 @@ class LightGBMModel(BaseBoostingModel):
     params : dict or None
         LightGBM hyperparameters. Merged with _LIGHTGBM_DEFAULTS.
     task_type : str
-        'binary_classification', 'multiclass_classification', or 'regression'.
+        'binary_classification' or 'multiclass_classification'.
     """
 
     def __init__(
@@ -66,12 +65,15 @@ class LightGBMModel(BaseBoostingModel):
 
         p = dict(self.params)
 
-        if self.task_type == "regression":
-            return lgb.LGBMRegressor(**p)
-        elif self.task_type == "multiclass_classification":
+        if self.task_type == "multiclass_classification":
             return lgb.LGBMClassifier(objective="multiclass", **p)
-        else:
+        if self.task_type == "binary_classification":
             return lgb.LGBMClassifier(objective="binary", **p)
+
+        raise ValueError(
+            f"Unsupported task_type '{self.task_type}'. "
+            "Supported values: binary_classification, multiclass_classification."
+        )
 
     def fit(
         self,
@@ -79,7 +81,7 @@ class LightGBMModel(BaseBoostingModel):
         y_train: pd.Series,
         X_valid: Optional[pd.DataFrame] = None,
         y_valid: Optional[pd.Series] = None,
-    ) -> "LightGBMModel":
+    ) -> LightGBMModel:
         self._feature_names = X_train.columns.tolist()
         self._model = self._build_model()
 
@@ -106,20 +108,37 @@ class LightGBMModel(BaseBoostingModel):
     def get_feature_importance(self) -> pd.Series:
         self._check_is_fitted()
         importance = self._model.feature_importances_
-        return (
-            pd.Series(importance, index=self._feature_names, name="importance")
-            .sort_values(ascending=False)
+        return pd.Series(importance, index=self._feature_names, name="importance").sort_values(
+            ascending=False
         )
 
     def save(self, path: str) -> None:
-        """Save model in LightGBM text format."""
+        """Save model in LightGBM text format via the underlying booster."""
         self._check_is_fitted()
         if not path.endswith(".txt"):
             path = path + ".txt"
         self._model.booster_.save_model(path)
 
     @classmethod
-    def load(cls, path: str) -> "LightGBMModel":
+    def load(cls, path: str, task_type: str = "binary_classification") -> "LightGBMModel":
+        """
+        Deserialize a model from disk.
+
+        Parameters
+        ----------
+        path : str
+            File path used in save() (without extension).
+        task_type : str
+            Task type used during training. Defaults to 'binary_classification'.
+
+        Notes
+        -----
+        Bug #1 fix: task_type is now set on the loaded instance so predict_proba()
+        can correctly slice probabilities for binary classification.
+        Bug #2 fix: we reconstruct a LGBMClassifier (which has predict_proba) by
+        loading the saved booster into it, rather than returning a raw lgb.Booster
+        which lacks predict_proba().
+        """
         try:
             import lightgbm as lgb
         except ImportError as exc:
@@ -132,7 +151,12 @@ class LightGBMModel(BaseBoostingModel):
 
         instance = cls.__new__(cls)
         BaseBoostingModel.__init__(instance)
-        instance._model = lgb.Booster(model_file=path)
+        instance.task_type = task_type  # Bug #1 fix: required by predict_proba()
+
+        # Bug #2 fix: load into LGBMClassifier (has predict_proba) instead of bare Booster
+        classifier = lgb.LGBMClassifier()
+        classifier._Booster = lgb.Booster(model_file=path)  # type: ignore[attr-defined]
+        instance._model = classifier
         instance._is_fitted = True
         instance._feature_names = []
         return instance

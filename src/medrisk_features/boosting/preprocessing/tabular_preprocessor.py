@@ -15,7 +15,7 @@ require feature scaling, so StandardScaler is disabled by default.
 from __future__ import annotations
 
 import pickle
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -50,13 +50,13 @@ class TabularPreprocessor:
         categorical_impute_strategy: str = "most_frequent",
         categorical_encoding: str = "ordinal",
     ) -> None:
-        self.numeric_columns            = numeric_columns or []
-        self.categorical_columns        = categorical_columns or []
-        self.numeric_impute_strategy    = numeric_impute_strategy
+        self.numeric_columns = numeric_columns or []
+        self.categorical_columns = categorical_columns or []
+        self.numeric_impute_strategy = numeric_impute_strategy
         self.categorical_impute_strategy = categorical_impute_strategy
-        self.categorical_encoding       = categorical_encoding
+        self.categorical_encoding = categorical_encoding
 
-        self._transformer: Optional[ColumnTransformer] = None
+        self._transformer: Optional[Any] = None
         self._feature_names_out: List[str] = []
         self._is_fitted = False
 
@@ -68,9 +68,11 @@ class TabularPreprocessor:
         from sklearn.preprocessing import OrdinalEncoder
 
         # ── Numeric pipeline ──────────────────────────────────────────────
-        numeric_pipeline = Pipeline([
-            ("imputer", SimpleImputer(strategy=self.numeric_impute_strategy)),
-        ])
+        numeric_pipeline = Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy=self.numeric_impute_strategy)),
+            ]
+        )
 
         # ── Categorical pipeline ──────────────────────────────────────────
         if self.categorical_encoding == "ordinal":
@@ -81,12 +83,18 @@ class TabularPreprocessor:
             )
         else:
             from sklearn.preprocessing import OneHotEncoder
+
             encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
 
-        categorical_pipeline = Pipeline([
-            ("imputer", SimpleImputer(strategy=self.categorical_impute_strategy, fill_value="missing")),
-            ("encoder", encoder),
-        ])
+        categorical_pipeline = Pipeline(
+            [
+                (
+                    "imputer",
+                    SimpleImputer(strategy=self.categorical_impute_strategy, fill_value="missing"),
+                ),
+                ("encoder", encoder),
+            ]
+        )
 
         # ── Combine ───────────────────────────────────────────────────────
         transformers = []
@@ -101,7 +109,7 @@ class TabularPreprocessor:
             verbose_feature_names_out=False,
         )
 
-    def fit(self, X: pd.DataFrame) -> "TabularPreprocessor":
+    def fit(self, X: pd.DataFrame) -> TabularPreprocessor:
         """
         Fit the preprocessor on training data.
 
@@ -157,7 +165,7 @@ class TabularPreprocessor:
             pickle.dump(self, f)
 
     @classmethod
-    def load(cls, path: str) -> "TabularPreprocessor":
+    def load(cls, path: str) -> TabularPreprocessor:
         """Deserialize preprocessor from disk."""
         with open(path, "rb") as f:
             return pickle.load(f)
@@ -165,11 +173,11 @@ class TabularPreprocessor:
     def get_config(self) -> dict:
         """Return serializable configuration dict for MLflow logging."""
         return {
-            "numeric_columns":             self.numeric_columns,
-            "categorical_columns":         self.categorical_columns,
-            "numeric_impute_strategy":     self.numeric_impute_strategy,
+            "numeric_columns": self.numeric_columns,
+            "categorical_columns": self.categorical_columns,
+            "numeric_impute_strategy": self.numeric_impute_strategy,
             "categorical_impute_strategy": self.categorical_impute_strategy,
-            "categorical_encoding":        self.categorical_encoding,
+            "categorical_encoding": self.categorical_encoding,
         }
 
 
@@ -199,7 +207,7 @@ def auto_detect_column_types(
 
     feature_cols = [c for c in df.columns if c not in skip]
 
-    numeric_cols     = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
+    numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = df[feature_cols].select_dtypes(exclude=[np.number]).columns.tolist()
 
     return numeric_cols, categorical_cols

@@ -1,7 +1,7 @@
 """
 XGBoost model wrapper for the medrisk boosting MLOps pipeline.
 
-Wraps xgboost.XGBClassifier / XGBRegressor behind the BaseBoostingModel
+Wraps xgboost.XGBClassifier behind the BaseBoostingModel
 interface so the rest of the pipeline never calls xgboost directly.
 
 Installation: pip install medrisk-features[xgboost]
@@ -9,14 +9,12 @@ Installation: pip install medrisk-features[xgboost]
 
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 
 from medrisk_features.boosting.models.base import BaseBoostingModel
-
 
 # Default hyperparameters optimised for tabular binary classification
 _XGBOOST_DEFAULTS: Dict[str, Any] = {
@@ -42,15 +40,15 @@ class XGBoostModel(BaseBoostingModel):
     """
     XGBoost wrapper implementing BaseBoostingModel.
 
-    Supports early stopping via the validation set and automatically
-    switches between XGBClassifier and XGBRegressor based on task_type.
+    Supports early stopping via the validation set and switches objectives
+    for binary or multiclass classification based on task_type.
 
     Parameters
     ----------
     params : dict or None
         XGBoost hyperparameters. Merged with _XGBOOST_DEFAULTS.
     task_type : str
-        'binary_classification', 'multiclass_classification', or 'regression'.
+        'binary_classification' or 'multiclass_classification'.
     """
 
     def __init__(
@@ -74,12 +72,15 @@ class XGBoostModel(BaseBoostingModel):
 
         p = {k: v for k, v in self.params.items() if k != "use_label_encoder"}
 
-        if self.task_type == "regression":
-            return xgb.XGBRegressor(**p)
-        elif self.task_type == "multiclass_classification":
+        if self.task_type == "multiclass_classification":
             return xgb.XGBClassifier(objective="multi:softprob", **p)
-        else:
+        if self.task_type == "binary_classification":
             return xgb.XGBClassifier(objective="binary:logistic", **p)
+
+        raise ValueError(
+            f"Unsupported task_type '{self.task_type}'. "
+            "Supported values: binary_classification, multiclass_classification."
+        )
 
     def fit(
         self,
@@ -87,7 +88,7 @@ class XGBoostModel(BaseBoostingModel):
         y_train: pd.Series,
         X_valid: Optional[pd.DataFrame] = None,
         y_valid: Optional[pd.Series] = None,
-    ) -> "XGBoostModel":
+    ) -> XGBoostModel:
         self._feature_names = X_train.columns.tolist()
         self._model = self._build_model()
 
@@ -115,9 +116,8 @@ class XGBoostModel(BaseBoostingModel):
     def get_feature_importance(self) -> pd.Series:
         self._check_is_fitted()
         importance = self._model.feature_importances_
-        return (
-            pd.Series(importance, index=self._feature_names, name="importance")
-            .sort_values(ascending=False)
+        return pd.Series(importance, index=self._feature_names, name="importance").sort_values(
+            ascending=False
         )
 
     def save(self, path: str) -> None:
@@ -128,7 +128,18 @@ class XGBoostModel(BaseBoostingModel):
         self._model.save_model(path)
 
     @classmethod
-    def load(cls, path: str) -> "XGBoostModel":
+    def load(cls, path: str, task_type: str = "binary_classification") -> "XGBoostModel":
+        """
+        Deserialize a model from disk.
+
+        Parameters
+        ----------
+        path : str
+            File path used in save() (without extension).
+        task_type : str
+            Task type used during training. Defaults to 'binary_classification'.
+            Pass 'multiclass_classification' if the model was trained for multiclass.
+        """
         try:
             import xgboost as xgb
         except ImportError as exc:
@@ -141,6 +152,7 @@ class XGBoostModel(BaseBoostingModel):
 
         instance = cls.__new__(cls)
         BaseBoostingModel.__init__(instance)
+        instance.task_type = task_type  # Bug #1 fix: task_type required by predict_proba()
         instance._model = xgb.XGBClassifier()
         instance._model.load_model(path)
         instance._is_fitted = True

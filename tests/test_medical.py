@@ -1,4 +1,5 @@
 """Unit tests for MedicalFeatureEngineer."""
+
 import pandas as pd
 import pytest
 from medrisk_features.features import MedicalFeatureEngineer
@@ -41,6 +42,26 @@ def test_bp_category_values(full_df, logger):
     df_out = fe.transform(full_df)
     valid_values = {"Normal", "Pre-Hypertension", "Hypertension"}
     assert set(df_out["bp_category"].dropna().astype(str)).issubset(valid_values)
+
+
+def test_bp_category_does_not_hide_hypertension(logger):
+    df = pd.DataFrame(
+        {
+            "glucose_fasting": [90, 90, 90, 90],
+            "bmi": [22, 22, 22, 22],
+            "systolic_bp": [110, 130, 180, 130],
+            "diastolic_bp": [70, 85, 70, 95],
+        }
+    )
+    fe = MedicalFeatureEngineer(logger=logger)
+    df_out = fe.transform(df)
+
+    assert df_out["bp_category"].tolist() == [
+        "Normal",
+        "Pre-Hypertension",
+        "Hypertension",
+        "Hypertension",
+    ]
 
 
 def test_homa_ir_positive(full_df, logger):

@@ -1,5 +1,7 @@
 from pandas import DataFrame
+
 from medrisk_features.logging import get_logger
+from medrisk_features.utils.constants import WHO_ACTIVITY_MIN_WEEKLY
 
 
 class BehavioralFeatureEngineer:
@@ -45,7 +47,7 @@ class BehavioralFeatureEngineer:
         if "physical_activity_minutes_per_week" in df.columns:
             # Ratio relative to WHO recommendation, capped at 3x to avoid outlier distortion
             df["physical_activity_adequate"] = (
-                df["physical_activity_minutes_per_week"] / 150
+                df["physical_activity_minutes_per_week"] / WHO_ACTIVITY_MIN_WEEKLY
             ).clip(upper=3)
         else:
             self.logger.warning(
@@ -58,8 +60,7 @@ class BehavioralFeatureEngineer:
         # --------------------------------------------------
         if {"screen_time_hours_per_day", "sleep_hours_per_day"}.issubset(df.columns):
             df["screen_sleep_imbalance"] = (
-                df["screen_time_hours_per_day"]
-                / df["sleep_hours_per_day"]
+                df["screen_time_hours_per_day"] / df["sleep_hours_per_day"]
             ).clip(upper=5)
         else:
             self.logger.warning(
@@ -76,12 +77,10 @@ class BehavioralFeatureEngineer:
         if required.issubset(df.columns):
             df["sedentary_risk"] = (
                 (df["screen_time_hours_per_day"] >= 6)
-                & (df["physical_activity_minutes_per_week"] < 150)
+                & (df["physical_activity_minutes_per_week"] < WHO_ACTIVITY_MIN_WEEKLY)
             ).astype(int)
         else:
-            self.logger.warning(
-                "Missing columns for sedentary_risk."
-            )
+            self.logger.warning("Missing columns for sedentary_risk.")
 
         self.logger.info("Behavioral features created successfully.")
         return df

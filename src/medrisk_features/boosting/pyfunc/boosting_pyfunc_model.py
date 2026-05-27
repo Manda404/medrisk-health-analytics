@@ -39,7 +39,7 @@ import json
 import os
 import pickle
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -61,10 +61,11 @@ class BoostingPyFuncModel:
     """
 
     # ── Artifact keys ─────────────────────────────────────────────────────────
-    ARTIFACT_MODEL         = "model"
-    ARTIFACT_PREPROCESSOR  = "preprocessor"
-    ARTIFACT_CONFIG        = "config"
+    ARTIFACT_MODEL = "model"
+    ARTIFACT_PREPROCESSOR = "preprocessor"
+    ARTIFACT_CONFIG = "config"
     ARTIFACT_FEATURE_NAMES = "feature_names"
+    ARTIFACT_TRANSFORMED_FEATURE_NAMES = "transformed_feature_names"
 
     def load_context(self, context: Any) -> None:
         """
@@ -81,12 +82,12 @@ class BoostingPyFuncModel:
         """
         # ── 1. Load configuration ─────────────────────────────────────────
         config_path = context.artifacts[self.ARTIFACT_CONFIG]
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             self.config: dict = json.load(f)
 
         # ── 2. Load feature names ─────────────────────────────────────────
         fn_path = context.artifacts[self.ARTIFACT_FEATURE_NAMES]
-        with open(fn_path, "r", encoding="utf-8") as f:
+        with open(fn_path, encoding="utf-8") as f:
             self.feature_names: list = json.load(f)
 
         # ── 3. Load the preprocessor (sklearn ColumnTransformer) ──────────
@@ -94,17 +95,29 @@ class BoostingPyFuncModel:
         with open(preprocessor_path, "rb") as f:
             self.preprocessor = pickle.load(f)
 
+        transformed_fn_path = context.artifacts.get(self.ARTIFACT_TRANSFORMED_FEATURE_NAMES)
+        if transformed_fn_path and os.path.exists(transformed_fn_path):
+            with open(transformed_fn_path, encoding="utf-8") as f:
+                self.transformed_feature_names: list = json.load(f)
+        else:
+            self.transformed_feature_names = getattr(
+                self.preprocessor,
+                "feature_names_out",
+                self.feature_names,
+            )
+
         # ── 4. Load the boosting model ────────────────────────────────────
         model_path = context.artifacts[self.ARTIFACT_MODEL]
         self._model = self._load_model(model_path)
 
         # ── 5. Store priority thresholds for fast access ──────────────────
-        self._priority_high   = float(self.config.get("priority_high_threshold", 0.8))
+        self._priority_high = float(self.config.get("priority_high_threshold", 0.8))
         self._priority_medium = float(self.config.get("priority_medium_threshold", 0.5))
-        self._id_columns      = self.config.get("id_columns", [])
-        self._model_version   = self.config.get("model_version", "unknown")
+        self._id_columns = self.config.get("id_columns", [])
+        self._model_version = self.config.get("model_version", "unknown")
+        self._task_type = self.config.get("task_type", "binary_classification")
 
-    def predict(self, context: Any, model_input: pd.DataFrame) -> pd.DataFrame:
+    def predict(self, context: Any, model_input: pd.DataFrame, params=None) -> pd.DataFrame:
         """
         Full inference pipeline: raw data → clean output DataFrame.
 
@@ -124,6 +137,9 @@ class BoostingPyFuncModel:
             MLflow context (not used directly but required by the interface).
         model_input : pd.DataFrame
             Raw patient / client data. Must contain all feature columns.
+        params : dict or None
+            Optional inference-time parameters (required by mlflow >= 2.6
+            PythonModel interface). Currently unused.
 
         Returns
         -------
@@ -169,12 +185,18 @@ class BoostingPyFuncModel:
         if hasattr(X_transformed, "toarray"):
             X_transformed = X_transformed.toarray()
 
-        # ── Step 5: Predict probability ───────────────────────────────────
-        probabilities = self._model.predict_proba(
-            pd.DataFrame(X_transformed, columns=self.feature_names)
-            if hasattr(self._model, "predict_proba")
-            else X_transformed
+        model_features = pd.DataFrame(
+            X_transformed,
+            columns=self.transformed_feature_names,
         )
+
+        # ── Step 5: Predict probability ──────────────────────────────────
+        if hasattr(self._model, "predict_proba"):
+            probabilities = self._model.predict_proba(model_features)
+        elif hasattr(self._model, "predict"):
+            probabilities = self._model.predict(model_features)
+        else:
+            raise RuntimeError("Loaded boosting model does not expose a predict method.")
 
         # Flatten to 1D for binary classification
         if isinstance(probabilities, np.ndarray) and probabilities.ndim == 2:
@@ -185,10 +207,10 @@ class BoostingPyFuncModel:
 
         # ── Step 7: Build clean output DataFrame ──────────────────────────
         output = id_data.reset_index(drop=True).copy()
-        output["probability"]      = np.round(probabilities, 6)
-        output["priority"]         = priority
-        output["prediction_date"]  = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        output["model_version"]    = self._model_version
+        output["probability"] = np.round(probabilities, 6)
+        output["priority"] = priority
+        output["prediction_date"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        output["model_version"] = self._model_version
 
         return output
 
@@ -238,6 +260,7 @@ class BoostingPyFuncModel:
         if ext == ".json":
             try:
                 import xgboost as xgb
+
                 m = xgb.XGBClassifier()
                 m.load_model(model_path)
                 return m
@@ -250,6 +273,7 @@ class BoostingPyFuncModel:
         elif ext == ".cbm":
             try:
                 from catboost import CatBoostClassifier
+
                 m = CatBoostClassifier()
                 m.load_model(model_path)
                 return m
@@ -262,6 +286,7 @@ class BoostingPyFuncModel:
         elif ext == ".txt":
             try:
                 import lightgbm as lgb
+
                 return lgb.Booster(model_file=model_path)
             except ImportError as exc:
                 raise ImportError(
@@ -294,6 +319,7 @@ def get_boosting_pyfunc_class():
             Production class: BoostingPyFuncModel registered as a
             first-class mlflow.pyfunc.PythonModel.
             """
+
             pass
 
         return _BoostingPyFuncModelWithBase

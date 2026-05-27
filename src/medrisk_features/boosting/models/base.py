@@ -37,7 +37,7 @@ class BaseBoostingModel(ABC):
             Merged with sensible defaults defined in each subclass.
         """
         self.params: Dict[str, Any] = params or {}
-        self._model: Any = None          # underlying library model object
+        self._model: Any = None  # underlying library model object
         self._is_fitted: bool = False
 
     # ------------------------------------------------------------------
@@ -51,7 +51,7 @@ class BaseBoostingModel(ABC):
         y_train: pd.Series,
         X_valid: Optional[pd.DataFrame] = None,
         y_valid: Optional[pd.Series] = None,
-    ) -> "BaseBoostingModel":
+    ) -> BaseBoostingModel:
         """
         Train the model on (X_train, y_train).
 
@@ -70,7 +70,7 @@ class BaseBoostingModel(ABC):
     @abstractmethod
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Return hard predictions (class labels or regression values).
+        Return hard classification predictions.
 
         Parameters
         ----------
@@ -119,7 +119,7 @@ class BaseBoostingModel(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, path: str) -> "BaseBoostingModel":
+    def load(cls, path: str) -> BaseBoostingModel:
         """
         Deserialize a model from disk.
 
@@ -140,8 +140,7 @@ class BaseBoostingModel(ABC):
         """Raise RuntimeError if predict is called before fit."""
         if not self._is_fitted:
             raise RuntimeError(
-                f"{self.__class__.__name__} is not fitted yet. "
-                "Call fit() before predict()."
+                f"{self.__class__.__name__} is not fitted yet. " "Call fit() before predict()."
             )
 
     @property

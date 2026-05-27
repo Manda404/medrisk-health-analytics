@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import pandas as pd
 
 if TYPE_CHECKING:
-    import mlflow
+    pass
 
 
 class MedRiskPyFuncModel:
@@ -90,18 +90,18 @@ class MedRiskPyFuncModel:
 
         # -- Load the configuration ---------------------------------------
         config_path = context.artifacts[self.ARTIFACT_CONFIG]
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             self.config = json.load(f)
 
         # -- Load feature names (optional — may not exist on older models) --
         feature_names_path = context.artifacts.get(self.ARTIFACT_FEATURE_NAMES)
         if feature_names_path and os.path.exists(feature_names_path):
-            with open(feature_names_path, "r", encoding="utf-8") as f:
+            with open(feature_names_path, encoding="utf-8") as f:
                 self.feature_names: Optional[list] = json.load(f)
         else:
             self.feature_names = None
 
-    def predict(self, context: Any, model_input: pd.DataFrame) -> pd.DataFrame:
+    def predict(self, context: Any, model_input: pd.DataFrame, params=None) -> pd.DataFrame:
         """
         Apply the feature engineering pipeline to raw input data.
 
@@ -118,6 +118,9 @@ class MedRiskPyFuncModel:
             - Age
             - glucose_fasting
             - bmi
+        params : dict or None
+            Optional inference-time parameters (required by mlflow >= 2.6
+            PythonModel interface). Currently unused.
 
         Returns
         -------
@@ -153,6 +156,7 @@ def _get_pyfunc_class():
             Production class: MedRiskPyFuncModel with mlflow.pyfunc.PythonModel
             as base class. Used when mlflow is available.
             """
+
             pass
 
         return _MedRiskPyFuncModelWithBase

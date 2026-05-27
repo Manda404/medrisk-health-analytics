@@ -18,26 +18,27 @@ from typing import Any, Dict, Optional, Type
 
 from medrisk_features.boosting.models.base import BaseBoostingModel
 
-
 # ---------------------------------------------------------------------------
 # Registry — maps model_type string → implementation class
 # (imported lazily to keep library imports optional)
 # ---------------------------------------------------------------------------
 
-def _get_registry() -> Dict[str, Type[BaseBoostingModel]]:
+
+def _get_registry() -> Dict[str, Type[Any]]:
     """Build and return the model registry with lazy imports."""
-    from medrisk_features.boosting.models.xgboost_model import XGBoostModel
     from medrisk_features.boosting.models.catboost_model import CatBoostModel
     from medrisk_features.boosting.models.lightgbm_model import LightGBMModel
+    from medrisk_features.boosting.models.xgboost_model import XGBoostModel
 
     return {
-        "xgboost":  XGBoostModel,
+        "xgboost": XGBoostModel,
         "catboost": CatBoostModel,
         "lightgbm": LightGBMModel,
     }
 
 
 SUPPORTED_MODELS = ["xgboost", "catboost", "lightgbm"]
+SUPPORTED_TASK_TYPES = ["binary_classification", "multiclass_classification"]
 
 
 class BoostingModelFactory:
@@ -71,8 +72,7 @@ class BoostingModelFactory:
         params : dict or None
             Hyperparameters for the chosen model. If None, defaults are used.
         task_type : str
-            ML task: 'binary_classification', 'multiclass_classification',
-            or 'regression'.
+            ML task: 'binary_classification' or 'multiclass_classification'.
         **kwargs
             Additional keyword arguments forwarded to the model constructor
             (e.g. cat_features for CatBoostModel).
@@ -94,6 +94,11 @@ class BoostingModelFactory:
             raise ValueError(
                 f"Unknown model_type '{model_type}'. "
                 f"Supported models: {sorted(registry.keys())}"
+            )
+
+        if task_type not in SUPPORTED_TASK_TYPES:
+            raise ValueError(
+                f"Unsupported task_type '{task_type}'. " f"Supported values: {SUPPORTED_TASK_TYPES}"
             )
 
         model_class = registry[model_type_lower]

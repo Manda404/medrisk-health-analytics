@@ -19,28 +19,30 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
 
+
 class SplitStrategy(str, Enum):
     """Dataset split strategy."""
-    RANDOM      = "random"       # standard random split
-    STRATIFIED  = "stratified"   # stratified by target (classification)
-    TEMPORAL    = "temporal"     # chronological split by date column
+
+    RANDOM = "random"  # standard random split
+    STRATIFIED = "stratified"  # stratified by target (classification)
+    TEMPORAL = "temporal"  # chronological split by date column
 
 
 class TaskType(str, Enum):
     """ML task type."""
-    BINARY_CLASSIFICATION    = "binary_classification"
+
+    BINARY_CLASSIFICATION = "binary_classification"
     MULTICLASS_CLASSIFICATION = "multiclass_classification"
-    REGRESSION               = "regression"
 
 
 # ---------------------------------------------------------------------------
 # TrainingConfig
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TrainingConfig:
@@ -63,7 +65,7 @@ class TrainingConfig:
 
     # ── Data ──────────────────────────────────────────────────────────────
     target_column: str = "TARGET"
-    """Name of the binary/multiclass/regression target column."""
+    """Name of the binary or multiclass target column."""
 
     id_columns: List[str] = field(default_factory=list)
     """Identifier columns preserved in the output (not used as features)."""
@@ -90,6 +92,15 @@ class TrainingConfig:
     validation_size: float = 0.2
     """Proportion of training data used as validation set (0.0–1.0)."""
 
+    use_internal_test_split: bool = True
+    """
+    Whether train_boosting_model() should create an internal test split.
+
+    Set to False when a separate holdout test table already exists in
+    Unity Catalog. In that case the trainer creates only train/validation
+    splits, and the holdout table should be evaluated separately.
+    """
+
     random_state: int = 42
     """Random seed for reproducibility."""
 
@@ -111,16 +122,18 @@ class TrainingConfig:
     """Boosting model type: 'xgboost', 'catboost', or 'lightgbm'."""
 
     task_type: TaskType = TaskType.BINARY_CLASSIFICATION
-    """ML task: binary_classification, multiclass_classification, or regression."""
+    """ML task: binary_classification or multiclass_classification."""
 
-    model_params: Dict[str, Any] = field(default_factory=lambda: {
-        "max_depth": 6,
-        "learning_rate": 0.05,
-        "n_estimators": 300,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "random_state": 42,
-    })
+    model_params: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "max_depth": 6,
+            "learning_rate": 0.05,
+            "n_estimators": 300,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "random_state": 42,
+        }
+    )
     """Hyperparameters passed directly to the chosen boosting model."""
 
     # ── MLflow ────────────────────────────────────────────────────────────
@@ -146,12 +159,14 @@ class TrainingConfig:
     priority_medium_threshold: float = 0.5
     """Probability threshold above which priority = 'MEDIUM' (else 'LOW')."""
 
-    output_columns: List[str] = field(default_factory=lambda: [
-        "probability",
-        "priority",
-        "prediction_date",
-        "model_version",
-    ])
+    output_columns: List[str] = field(
+        default_factory=lambda: [
+            "probability",
+            "priority",
+            "prediction_date",
+            "model_version",
+        ]
+    )
     """Columns included in the prediction output (id_columns are always added)."""
 
     def to_mlflow_params(self) -> Dict[str, Any]:
@@ -167,18 +182,20 @@ class TrainingConfig:
             Flat key/value dict safe to pass to mlflow.log_params().
         """
         import json
+
         return {
-            "target_column":            self.target_column,
-            "id_columns":               json.dumps(self.id_columns),
-            "model_type":               self.model_type,
-            "task_type":                self.task_type.value,
-            "split_strategy":           self.split_strategy.value,
-            "test_size":                self.test_size,
-            "validation_size":          self.validation_size,
-            "random_state":             self.random_state,
-            "numeric_impute_strategy":  self.numeric_impute_strategy,
-            "categorical_encoding":     self.categorical_encoding,
-            "priority_high_threshold":  self.priority_high_threshold,
+            "target_column": self.target_column,
+            "id_columns": json.dumps(self.id_columns),
+            "model_type": self.model_type,
+            "task_type": self.task_type.value,
+            "split_strategy": self.split_strategy.value,
+            "test_size": self.test_size,
+            "validation_size": self.validation_size,
+            "use_internal_test_split": self.use_internal_test_split,
+            "random_state": self.random_state,
+            "numeric_impute_strategy": self.numeric_impute_strategy,
+            "categorical_encoding": self.categorical_encoding,
+            "priority_high_threshold": self.priority_high_threshold,
             "priority_medium_threshold": self.priority_medium_threshold,
             **{f"model__{k}": v for k, v in self.model_params.items()},
         }
@@ -187,6 +204,7 @@ class TrainingConfig:
 # ---------------------------------------------------------------------------
 # InferenceConfig
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class InferenceConfig:
@@ -224,6 +242,7 @@ class InferenceConfig:
 # ---------------------------------------------------------------------------
 # TrainingResult
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TrainingResult:

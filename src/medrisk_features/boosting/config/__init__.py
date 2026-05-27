@@ -1,9 +1,9 @@
 from medrisk_features.boosting.config.schemas import (
-    TrainingConfig,
     InferenceConfig,
-    TrainingResult,
     SplitStrategy,
     TaskType,
+    TrainingConfig,
+    TrainingResult,
 )
 
 __all__ = [
