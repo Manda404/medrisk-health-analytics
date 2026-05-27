@@ -2,17 +2,20 @@ name: CI
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
 
 jobs:
-  test:
+  # ---------------------------------------------------------------------------
+  # Lint & format check
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint & Format
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -20,8 +23,7 @@ jobs:
           python-version: "3.10"
 
       - name: Install Poetry
-        run: |
-          pip install poetry
+        run: pip install poetry
 
       - name: Configure Poetry
         run: |
@@ -29,9 +31,83 @@ jobs:
           poetry config virtualenvs.in-project true
 
       - name: Install dependencies
-        run: |
-          poetry install
+        run: poetry install
 
-      - name: Run tests
+      - name: Run ruff linter
+        run: poetry run ruff check src/ tests/
+
+      - name: Check black formatting
+        run: poetry run black --check src/ tests/
+
+  # ---------------------------------------------------------------------------
+  # Type checking
+  # ---------------------------------------------------------------------------
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Configure Poetry
         run: |
-          poetry run pytest --cov=medrisk_features --cov-report=term-missing
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run mypy
+        run: poetry run mypy src/medrisk_features
+
+  # ---------------------------------------------------------------------------
+  # Tests (matrix: Python 3.9, 3.10, 3.11)
+  # ---------------------------------------------------------------------------
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Configure Poetry
+        run: |
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run tests with coverage
+        run: |
+          poetry run pytest \
+            --cov=medrisk_features \
+            --cov-report=term-missing \
+            --cov-report=xml
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.10'
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false

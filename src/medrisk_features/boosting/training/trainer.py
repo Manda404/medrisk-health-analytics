@@ -1,0 +1,381 @@
+"""
+train_boosting_model() — high-level training entry point.
+
+This function orchestrates the complete training pipeline:
+  1. Auto-detect or use explicit feature/column lists
+  2. Split data (random / stratified / temporal)
+  3. Fit the TabularPreprocessor
+  4. Train the boosting model (XGBoost / CatBoost / LightGBM)
+  5. Evaluate on train / valid / test
+  6. Log everything to MLflow (params, metrics, artifacts, pyfunc model)
+  7. Register in the Model Registry (optional)
+  8. Return a TrainingResult
+
+Usage (Databricks notebook)
+----------------------------
+>>> from medrisk_features.boosting import train_boosting_model, TrainingConfig
+>>>
+>>> config = TrainingConfig(
+...     target_column="TARGET",
+...     id_columns=["client_id", "pers_id"],
+...     model_type="xgboost",
+...     experiment_name="/Shared/experiments/boosting",
+...     registered_model_name="workspace.schema.boosting_model",
+... )
+>>> result = train_boosting_model(df, config=config)
+>>> print(result.metrics)
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+from typing import Optional
+
+import numpy as np
+import pandas as pd
+
+from medrisk_features.boosting.config.schemas import (
+    SplitStrategy,
+    TrainingConfig,
+    TrainingResult,
+)
+from medrisk_features.boosting.models.factory import BoostingModelFactory
+from medrisk_features.boosting.preprocessing.tabular_preprocessor import (
+    TabularPreprocessor,
+    auto_detect_column_types,
+)
+from medrisk_features.boosting.training.evaluator import evaluate_splits
+
+
+def train_boosting_model(
+    df: pd.DataFrame,
+    config: Optional[TrainingConfig] = None,
+    **config_kwargs,
+) -> TrainingResult:
+    """
+    Train a boosting model end-to-end with full MLflow logging.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Full training dataset (all splits combined — function handles
+        the split internally). Can be a Pandas DataFrame converted from
+        Spark via .toPandas() before calling this function.
+    config : TrainingConfig or None
+        Full training configuration. If None, a default config is created
+        and config_kwargs are forwarded to TrainingConfig(**config_kwargs).
+    **config_kwargs
+        Keyword arguments forwarded to TrainingConfig if config is None.
+        Useful for quick one-liner calls from notebooks.
+
+    Returns
+    -------
+    TrainingResult
+        Dataclass with run_id, model_uri, metrics, feature_names, etc.
+
+    Example
+    -------
+    >>> result = train_boosting_model(
+    ...     df=spark_df.toPandas(),
+    ...     target_column="TARGET",
+    ...     id_columns=["client_id", "pers_id"],
+    ...     model_type="xgboost",
+    ...     experiment_name="/Shared/experiments/boosting",
+    ... )
+    """
+    try:
+        import mlflow
+        import mlflow.pyfunc
+    except ImportError as exc:
+        raise ImportError(
+            "mlflow is required for training. "
+            "Install with: pip install medrisk-features[mlflow]"
+        ) from exc
+
+    # ── Resolve configuration ─────────────────────────────────────────────────
+    if config is None:
+        config = TrainingConfig(**config_kwargs)
+
+    # ── Auto-detect column types if not explicitly provided ──────────────────
+    numeric_cols, categorical_cols = auto_detect_column_types(
+        df,
+        exclude=config.exclude_columns,
+        target=config.target_column,
+        id_columns=config.id_columns,
+    )
+
+    if config.numeric_columns:
+        numeric_cols = config.numeric_columns
+    if config.categorical_columns:
+        categorical_cols = config.categorical_columns
+
+    feature_cols = numeric_cols + categorical_cols
+
+    # ── Build feature matrix and target ──────────────────────────────────────
+    X = df[feature_cols].copy()
+    y = df[config.target_column].copy()
+
+    # ── Split dataset ─────────────────────────────────────────────────────────
+    X_train, X_test, y_train, y_test = _split_data(X, y, config)
+    X_train, X_valid, y_train, y_valid = _split_data(
+        X_train, y_train,
+        config,
+        test_size=config.validation_size,
+    )
+
+    # ── Fit preprocessor ──────────────────────────────────────────────────────
+    preprocessor = TabularPreprocessor(
+        numeric_columns=numeric_cols,
+        categorical_columns=categorical_cols,
+        numeric_impute_strategy=config.numeric_impute_strategy,
+        categorical_impute_strategy=config.categorical_impute_strategy,
+        categorical_encoding=config.categorical_encoding,
+    )
+
+    X_train_t = preprocessor.fit_transform(X_train)
+    X_valid_t = preprocessor.transform(X_valid)
+    X_test_t  = preprocessor.transform(X_test)
+
+    # Wrap back as DataFrame (preserves feature names for tree models)
+    X_train_df = pd.DataFrame(X_train_t, columns=feature_cols, index=X_train.index)
+    X_valid_df = pd.DataFrame(X_valid_t, columns=feature_cols, index=X_valid.index)
+    X_test_df  = pd.DataFrame(X_test_t,  columns=feature_cols, index=X_test.index)
+
+    # ── Train the boosting model ──────────────────────────────────────────────
+    model = BoostingModelFactory.create(
+        model_type=config.model_type,
+        params=config.model_params,
+        task_type=config.task_type.value,
+    )
+    model.fit(X_train_df, y_train, X_valid=X_valid_df, y_valid=y_valid)
+
+    # ── Evaluate on all splits ────────────────────────────────────────────────
+    splits = {
+        "train": {"X": X_train_df, "y": y_train},
+        "valid": {"X": X_valid_df, "y": y_valid},
+        "test":  {"X": X_test_df,  "y": y_test},
+    }
+    metrics = evaluate_splits(model, splits, task_type=config.task_type.value)
+
+    # ── Log to MLflow ─────────────────────────────────────────────────────────
+    result = _log_to_mlflow(
+        model=model,
+        preprocessor=preprocessor,
+        config=config,
+        feature_names=feature_cols,
+        metrics=metrics,
+        df_sample=X_train.head(10),
+    )
+    result.config = config
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
+
+def _split_data(
+    X: pd.DataFrame,
+    y: pd.Series,
+    config: TrainingConfig,
+    test_size: Optional[float] = None,
+) -> tuple:
+    """Split X/y according to config.split_strategy."""
+    # Lazy import — sklearn is an optional dependency
+    from sklearn.model_selection import train_test_split
+
+    size = test_size if test_size is not None else config.test_size
+    strategy = config.split_strategy
+
+    if strategy == SplitStrategy.STRATIFIED:
+        return train_test_split(
+            X, y,
+            test_size=size,
+            random_state=config.random_state,
+            stratify=y,
+        )
+    elif strategy == SplitStrategy.TEMPORAL:
+        # Temporal split: last `size` fraction is test
+        split_idx = int(len(X) * (1 - size))
+        return (
+            X.iloc[:split_idx], X.iloc[split_idx:],
+            y.iloc[:split_idx], y.iloc[split_idx:],
+        )
+    else:
+        return train_test_split(
+            X, y,
+            test_size=size,
+            random_state=config.random_state,
+        )
+
+
+def _log_to_mlflow(
+    model,
+    preprocessor: TabularPreprocessor,
+    config: TrainingConfig,
+    feature_names: list,
+    metrics: dict,
+    df_sample: Optional[pd.DataFrame] = None,
+) -> TrainingResult:
+    """
+    Serialize artifacts, open an MLflow run, and log everything.
+
+    Logged artifacts
+    ----------------
+    - model.{json|cbm|txt}    : native boosting model
+    - preprocessor.pkl        : fitted TabularPreprocessor
+    - config.json             : full training configuration
+    - feature_names.json      : ordered feature column list
+    - feature_importance.csv  : feature importance ranking
+    - The pyfunc model (mlflow.pyfunc.log_model)
+    """
+    import mlflow
+    import mlflow.pyfunc
+
+    from medrisk_features.boosting.pyfunc.boosting_pyfunc_model import (
+        get_boosting_pyfunc_class,
+    )
+    from medrisk_features import __version__
+
+    mlflow.set_experiment(config.experiment_name)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+
+        # ── Serialize model ───────────────────────────────────────────────
+        model_ext = {"xgboost": ".json", "catboost": ".cbm", "lightgbm": ".txt"}.get(
+            config.model_type.lower(), ".pkl"
+        )
+        model_path = os.path.join(tmpdir, f"model{model_ext}")
+        model.save(model_path.replace(model_ext, ""))  # save() adds ext
+
+        # ── Serialize preprocessor ────────────────────────────────────────
+        preprocessor_path = os.path.join(tmpdir, "preprocessor.pkl")
+        preprocessor.save(preprocessor_path)
+
+        # ── Config JSON ───────────────────────────────────────────────────
+        config_dict = config.to_mlflow_params()
+        config_dict["medrisk_version"] = __version__
+        config_dict["model_type"]      = config.model_type
+        config_dict["id_columns_list"] = config.id_columns
+
+        # Priority thresholds needed at inference
+        config_dict["priority_high_threshold"]   = config.priority_high_threshold
+        config_dict["priority_medium_threshold"]  = config.priority_medium_threshold
+        config_dict["id_columns"]                = config.id_columns
+
+        config_path = os.path.join(tmpdir, "config.json")
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config_dict, f, indent=2, default=str)
+
+        # ── Feature names JSON ────────────────────────────────────────────
+        fn_path = os.path.join(tmpdir, "feature_names.json")
+        with open(fn_path, "w", encoding="utf-8") as f:
+            json.dump(feature_names, f, indent=2)
+
+        # ── Feature importance CSV ────────────────────────────────────────
+        fi_path = os.path.join(tmpdir, "feature_importance.csv")
+        try:
+            fi = model.get_feature_importance()
+            fi.to_csv(fi_path)
+        except Exception:
+            fi_path = None
+
+        # ── Start MLflow run ──────────────────────────────────────────────
+        run_tags = {
+            "model_type":       config.model_type,
+            "task_type":        config.task_type.value,
+            "medrisk_version":  __version__,
+        }
+
+        with mlflow.start_run(run_name=config.run_name, tags=run_tags) as run:
+            run_id = run.info.run_id
+
+            # Log parameters
+            safe_params = {
+                k: (str(v)[:250] if isinstance(v, (list, dict)) else v)
+                for k, v in config.to_mlflow_params().items()
+            }
+            mlflow.log_params(safe_params)
+
+            # Log metrics
+            mlflow.log_metrics(metrics)
+
+            # Log raw artifacts
+            mlflow.log_artifact(config_path,      artifact_path="pipeline_metadata")
+            mlflow.log_artifact(fn_path,           artifact_path="pipeline_metadata")
+            if fi_path and os.path.exists(fi_path):
+                mlflow.log_artifact(fi_path, artifact_path="pipeline_metadata")
+
+            # Infer MLflow model signature
+            signature = None
+            input_example = None
+            if df_sample is not None:
+                try:
+                    from mlflow.models.signature import infer_signature
+                    # Build a dummy prediction to infer output schema
+                    dummy_proba = model.predict_proba(
+                        pd.DataFrame(
+                            preprocessor.transform(df_sample),
+                            columns=feature_names
+                        )
+                    )
+                    signature = infer_signature(df_sample, dummy_proba)
+                    input_example = df_sample
+                except Exception:
+                    pass
+
+            # Log the full pyfunc model
+            PyfuncClass = get_boosting_pyfunc_class()
+            pyfunc_instance = PyfuncClass()
+
+            mlflow.pyfunc.log_model(
+                artifact_path=config.artifact_path,
+                python_model=pyfunc_instance,
+                artifacts={
+                    "model":         model_path,
+                    "preprocessor":  preprocessor_path,
+                    "config":        config_path,
+                    "feature_names": fn_path,
+                },
+                signature=signature,
+                input_example=input_example,
+                pip_requirements=[
+                    f"medrisk-features=={__version__}",
+                    f"{config.model_type}",
+                    "pandas>=2.0",
+                    "numpy>=1.24",
+                    "scikit-learn>=1.3",
+                ],
+            )
+
+            model_uri = f"runs:/{run_id}/{config.artifact_path}"
+
+            # Register in Model Registry (optional)
+            registered_version = None
+            if config.registered_model_name:
+                reg = mlflow.register_model(
+                    model_uri=model_uri,
+                    name=config.registered_model_name,
+                )
+                registered_version = reg.version
+
+                # Store model_version in config so it travels with artifacts
+                config_dict["model_version"] = registered_version
+
+    return TrainingResult(
+        run_id=run_id,
+        model_uri=model_uri,
+        registered_model_name=config.registered_model_name,
+        registered_model_version=registered_version,
+        metrics=metrics,
+        feature_names=feature_names,
+        artifact_paths={
+            "model":         model_path,
+            "preprocessor":  preprocessor_path,
+            "config":        config_path,
+            "feature_names": fn_path,
+        },
+    )

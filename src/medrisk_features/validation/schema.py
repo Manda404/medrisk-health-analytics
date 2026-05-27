@@ -1,11 +1,13 @@
-from typing import Iterable, Set
+from typing import Set
 from pandas import DataFrame
 from medrisk_features.logging import get_logger
+from medrisk_features.utils.exceptions import (
+    SchemaValidationError,
+    MissingRequiredColumnError,
+)
 
-
-class SchemaValidationError(Exception):
-    """Raised when input data schema is invalid."""
-    pass
+# Re-export SchemaValidationError so existing imports from this module still work
+__all__ = ["DataSchemaValidator", "SchemaValidationError"]
 
 
 class DataSchemaValidator:
@@ -16,6 +18,9 @@ class DataSchemaValidator:
     -------
     Detect missing critical columns early and prevent
     silent failures or inconsistent feature generation.
+
+    Raises explicit, actionable errors rather than letting
+    downstream steps fail with cryptic KeyErrors.
     """
 
     # Minimal required columns for the full pipeline
@@ -29,11 +34,23 @@ class DataSchemaValidator:
         self.logger = logger or get_logger(self.__class__.__name__)
 
     def validate_required_columns(self, df: DataFrame) -> None:
+        """
+        Check that all required columns are present in the DataFrame.
+
+        Parameters
+        ----------
+        df : DataFrame
+            Input dataset.
+
+        Raises
+        ------
+        MissingRequiredColumnError
+            If one or more required columns are absent.
+        """
         missing = self.REQUIRED_COLUMNS - set(df.columns)
         if missing:
-            message = f"Missing required columns: {sorted(missing)}"
-            self.logger.error(message)
-            raise SchemaValidationError(message)
+            self.logger.error(f"Missing required columns: {sorted(missing)}")
+            raise MissingRequiredColumnError(list(missing))
 
         self.logger.info("All required columns are present.")
 
@@ -49,7 +66,7 @@ class DataSchemaValidator:
         Raises
         ------
         SchemaValidationError
-            If schema validation fails.
+            If any schema validation check fails.
         """
         self.logger.info("Validating input data schema...")
         self.validate_required_columns(df)

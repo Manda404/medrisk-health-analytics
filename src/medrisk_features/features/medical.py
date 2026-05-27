@@ -11,25 +11,28 @@ class MedicalFeatureEngineer:
 
     Guidelines referenced
     ----------------------
-    - ADA (glucose, HbA1c)
-    - WHO (BMI)
-    - NCEP-ATP III (metabolic syndrome)
+    - ADA (glucose, HbA1c thresholds)
+    - WHO (BMI classification)
+    - JNC (blood pressure staging)
+    - NCEP-ATP III (metabolic syndrome criteria)
     """
 
     def __init__(self, logger=None):
         self.logger = logger or get_logger(self.__class__.__name__)
 
     # ------------------------------------------------------------------
-    # Glycemic status
+    # Glycemic status (ADA guidelines)
     # ------------------------------------------------------------------
     def _compute_glucose_status(self, df: DataFrame) -> DataFrame:
-        df["glucose_status"] = pd.cut(
+        # ADA fasting glucose classification (mg/dL)
+        df["glucose_category"] = pd.cut(
             df["glucose_fasting"],
             bins=[0, 99, 125, np.inf],
             labels=["Normal", "Pre-Diabetes", "Diabetes"],
         )
 
         if "hba1c" in df.columns:
+            # ADA HbA1c classification (%)
             df["hba1c_category"] = pd.cut(
                 df["hba1c"],
                 bins=[0, 5.7, 6.4, np.inf],
@@ -41,23 +44,25 @@ class MedicalFeatureEngineer:
         return df
 
     # ------------------------------------------------------------------
-    # Insulin resistance
+    # Insulin resistance (HOMA-IR index)
     # ------------------------------------------------------------------
     def _compute_homa_ir(self, df: DataFrame) -> DataFrame:
         if "insulin_level" not in df.columns:
             self.logger.warning(
-                "Column 'insulin_level' missing — HOMA-IR not computed."
+                "Column 'insulin_level' missing — homa_ir not computed."
             )
             return df
 
-        df["HOMA_IR"] = (df["glucose_fasting"] * df["insulin_level"]) / 405
-        df["insulin_resistance_flag"] = (df["HOMA_IR"] > 2.5).astype(int)
+        # HOMA-IR = (fasting glucose mg/dL × fasting insulin µU/mL) / 405
+        df["homa_ir"] = (df["glucose_fasting"] * df["insulin_level"]) / 405
+        df["insulin_resistance_flag"] = (df["homa_ir"] > 2.5).astype(int)
         return df
 
     # ------------------------------------------------------------------
-    # BMI and blood pressure
+    # BMI (WHO) and blood pressure (JNC) classification
     # ------------------------------------------------------------------
     def _compute_bmi_and_bp(self, df: DataFrame) -> DataFrame:
+        # WHO BMI classification (kg/m²)
         df["bmi_category"] = pd.cut(
             df["bmi"],
             bins=[0, 18.5, 24.9, 29.9, np.inf],
@@ -65,18 +70,13 @@ class MedicalFeatureEngineer:
         )
 
         if {"systolic_bp", "diastolic_bp"}.issubset(df.columns):
-
-            def bp_category(row):
-                if row["systolic_bp"] < 120 and row["diastolic_bp"] < 80:
-                    return "Normal"
-                elif (120 <= row["systolic_bp"] <= 139) or (
-                    80 <= row["diastolic_bp"] <= 89
-                ):
-                    return "Pre-Hypertension"
-                else:
-                    return "Hypertension"
-
-            df["bp_category"] = df.apply(bp_category, axis=1)
+            # Vectorized JNC staging — avoids slow row-by-row apply()
+            conditions = [
+                (df["systolic_bp"] < 120) & (df["diastolic_bp"] < 80),
+                (df["systolic_bp"] <= 139) | (df["diastolic_bp"] <= 89),
+            ]
+            choices = ["Normal", "Pre-Hypertension"]
+            df["bp_category"] = np.select(conditions, choices, default="Hypertension")
         else:
             self.logger.warning(
                 "Blood pressure columns missing — bp_category not created."
@@ -85,7 +85,7 @@ class MedicalFeatureEngineer:
         return df
 
     # ------------------------------------------------------------------
-    # Metabolic syndrome
+    # Metabolic syndrome (NCEP-ATP III criteria)
     # ------------------------------------------------------------------
     def _compute_metabolic_syndrome(self, df: DataFrame) -> DataFrame:
         required = {
@@ -102,6 +102,7 @@ class MedicalFeatureEngineer:
             )
             return df
 
+        # Flag = 1 if ≥3 of the 5 ATP-III criteria are met
         df["metabolic_syndrome_flag"] = (
             (
                 (df["bmi"] >= 30).astype(int)
@@ -131,6 +132,11 @@ class MedicalFeatureEngineer:
         -------
         DataFrame
             Dataset enriched with medical features.
+
+        Raises
+        ------
+        KeyError
+            If the required column 'glucose_fasting' is missing.
         """
         df = df.copy()
         self.logger.info("Creating medical features...")

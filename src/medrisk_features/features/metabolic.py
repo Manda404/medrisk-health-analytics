@@ -13,8 +13,9 @@ class MetabolicFeatureEngineer:
 
     Medical relevance
     ------------------
-    Diabetes risk usually comes from accumulation of imbalances:
-    obesity, dyslipidemia, hypertension and hyperglycemia.
+    Diabetes risk accumulates from combined imbalances:
+    obesity, dyslipidemia, hypertension and chronic hyperglycemia.
+    A composite burden score enables non-linear risk stratification.
     """
 
     def __init__(self, logger=None):
@@ -38,7 +39,7 @@ class MetabolicFeatureEngineer:
         self.logger.info("Creating advanced metabolic features...")
 
         # --------------------------------------------------
-        # 1) Glycemic load proxy
+        # 1) Glycemic load proxy (glucose × BMI)
         # --------------------------------------------------
         if {"glucose_fasting", "bmi"}.issubset(df.columns):
             df["glycemic_load"] = df["glucose_fasting"] * df["bmi"]
@@ -70,7 +71,7 @@ class MetabolicFeatureEngineer:
             "hdl_cholesterol",
         }
         if required_score.issubset(df.columns):
-            df["cardiometabolic_burden_score"] = (
+            df["cardiometabolic_burden"] = (
                 (df["bmi"] >= 30).astype(int)
                 + (df["systolic_bp"] >= 130).astype(int)
                 + (df["glucose_fasting"] >= 110).astype(int)
@@ -79,17 +80,19 @@ class MetabolicFeatureEngineer:
             )
         else:
             self.logger.warning(
-                "Missing columns for cardiometabolic score — cardiometabolic_burden_score not created."
+                "Missing columns for cardiometabolic score — cardiometabolic_burden not created."
             )
 
         # --------------------------------------------------
-        # 4) Blood pressure ratio
+        # 4) Blood pressure ratio (systolic / diastolic)
         # --------------------------------------------------
         if {"systolic_bp", "diastolic_bp"}.issubset(df.columns):
-            df["bp_ratio"] = df["systolic_bp"] / df["diastolic_bp"].replace(0, np.nan)
+            df["blood_pressure_ratio"] = (
+                df["systolic_bp"] / df["diastolic_bp"].replace(0, np.nan)
+            )
         else:
             self.logger.warning(
-                "Missing BP columns — bp_ratio not created."
+                "Missing BP columns — blood_pressure_ratio not created."
             )
 
         self.logger.info("Advanced metabolic features created successfully.")

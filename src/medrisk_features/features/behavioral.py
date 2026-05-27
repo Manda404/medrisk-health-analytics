@@ -14,8 +14,9 @@ class BehavioralFeatureEngineer:
 
     Medical relevance
     ------------------
-    - WHO physical activity guidelines (≥150 min/week)
-    - Screen overexposure and circadian disruption
+    - WHO physical activity guidelines (≥150 min/week moderate intensity)
+    - Screen overexposure is a proxy for sedentary behavior and circadian disruption
+    - Sedentary behavior independently predicts type 2 diabetes risk
     """
 
     def __init__(self, logger=None):
@@ -39,46 +40,47 @@ class BehavioralFeatureEngineer:
         self.logger.info("Creating behavioral features...")
 
         # --------------------------------------------------
-        # 1) Physical activity adequacy ratio
+        # 1) Physical activity adequacy (WHO threshold: 150 min/week)
         # --------------------------------------------------
         if "physical_activity_minutes_per_week" in df.columns:
-            df["activity_adequacy_ratio"] = (
+            # Ratio relative to WHO recommendation, capped at 3x to avoid outlier distortion
+            df["physical_activity_adequate"] = (
                 df["physical_activity_minutes_per_week"] / 150
             ).clip(upper=3)
         else:
             self.logger.warning(
                 "Column 'physical_activity_minutes_per_week' missing — "
-                "activity_adequacy_ratio not created."
+                "physical_activity_adequate not created."
             )
 
         # --------------------------------------------------
-        # 2) Screen / sleep imbalance
+        # 2) Screen / sleep imbalance (circadian disruption proxy)
         # --------------------------------------------------
         if {"screen_time_hours_per_day", "sleep_hours_per_day"}.issubset(df.columns):
-            df["screen_sleep_ratio"] = (
+            df["screen_sleep_imbalance"] = (
                 df["screen_time_hours_per_day"]
                 / df["sleep_hours_per_day"]
             ).clip(upper=5)
         else:
             self.logger.warning(
-                "Screen time or sleep columns missing — screen_sleep_ratio not created."
+                "Screen time or sleep columns missing — screen_sleep_imbalance not created."
             )
 
         # --------------------------------------------------
-        # 3) Sedentary risk flag
+        # 3) Sedentary risk flag (combined inactivity indicator)
         # --------------------------------------------------
         required = {
             "screen_time_hours_per_day",
             "physical_activity_minutes_per_week",
         }
         if required.issubset(df.columns):
-            df["sedentary_risk_flag"] = (
+            df["sedentary_risk"] = (
                 (df["screen_time_hours_per_day"] >= 6)
                 & (df["physical_activity_minutes_per_week"] < 150)
             ).astype(int)
         else:
             self.logger.warning(
-                "Missing columns for sedentary_risk_flag."
+                "Missing columns for sedentary_risk."
             )
 
         self.logger.info("Behavioral features created successfully.")

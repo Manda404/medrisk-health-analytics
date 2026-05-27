@@ -1,3 +1,4 @@
+import numpy as np
 from pandas import DataFrame
 from medrisk_features.logging import get_logger
 
@@ -15,13 +16,14 @@ class LifestyleFeatureEngineer:
     ------------------
     Healthy lifestyle improves insulin sensitivity,
     reduces chronic inflammation and lowers diabetes risk.
+    Each component is based on established prevention guidelines.
     """
 
     def __init__(self, logger=None):
         self.logger = logger or get_logger(self.__class__.__name__)
 
     # ------------------------------------------------------------------
-    # Lifestyle score
+    # Lifestyle score (0–10 scale, vectorized)
     # ------------------------------------------------------------------
     def _compute_lifestyle_score(self, df: DataFrame) -> DataFrame:
         required = {
@@ -38,23 +40,25 @@ class LifestyleFeatureEngineer:
             )
             return df
 
-        def lifestyle(row):
-            score = 0
-            score += 2 if row["diet_score"] >= 6 else 0
-            score += 2 if row["physical_activity_minutes_per_week"] >= 150 else 0
-            score += 2 if 7 <= row["sleep_hours_per_day"] <= 9 else 0
-            score += 2 if row["alcohol_consumption_per_week"] <= 2 else 0
-            score += 2 if row["smoking_status"] == "Never" else 0
-            return score
+        # Vectorized scoring — avoids slow row-by-row apply()
+        # Each criterion contributes 2 points (max total = 10)
+        score = (
+            (df["diet_score"] >= 6).astype(int) * 2
+            + (df["physical_activity_minutes_per_week"] >= 150).astype(int) * 2
+            + ((df["sleep_hours_per_day"] >= 7) & (df["sleep_hours_per_day"] <= 9)).astype(int) * 2
+            + (df["alcohol_consumption_per_week"] <= 2).astype(int) * 2
+            + (df["smoking_status"] == "Never").astype(int) * 2
+        )
 
-        df["lifestyle_score"] = df.apply(lifestyle, axis=1)
+        df["lifestyle_score"] = score
         return df
 
     # ------------------------------------------------------------------
-    # Sleep efficiency
+    # Sleep efficiency (sleep quality relative to screen time)
     # ------------------------------------------------------------------
     def _compute_sleep_efficiency(self, df: DataFrame) -> DataFrame:
         if {"sleep_hours_per_day", "screen_time_hours_per_day"}.issubset(df.columns):
+            # Ratio of sleep to (screen_time + 1) to avoid division by zero
             df["sleep_efficiency"] = (
                 df["sleep_hours_per_day"]
                 / (df["screen_time_hours_per_day"] + 1)
