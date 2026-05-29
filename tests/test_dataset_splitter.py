@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from medrisk_features.boosting import split_dataframe
+from medrisk_health_analytics.boosting import split_dataframe
 
 
 def test_split_dataframe_stratifies_pandas_target_distribution():

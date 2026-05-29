@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # medrisk-features — Boosting MLOps Pipeline (XGBoost / CatBoost / LightGBM)
+# MAGIC # medrisk-health-analytics — Boosting MLOps Pipeline (XGBoost / CatBoost / LightGBM)
 # MAGIC
 # MAGIC **End-to-end notebook:** data loading → feature engineering → boosting training → MLflow → `BoostingPyFuncModel` → inference
 # MAGIC
@@ -21,7 +21,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install "git+https://github.com/Manda404/medrisk-features.git" xgboost catboost lightgbm mlflow
+# MAGIC %pip install "git+https://github.com/Manda404/medrisk-health-analytics.git" xgboost catboost lightgbm mlflow
 
 # COMMAND ----------
 
@@ -61,7 +61,7 @@ import numpy as np
 import pandas as pd
 
 # ── Option A: real Unity Catalog table ────────────────────────────────────────
-# from medrisk_features.boosting import read_from_delta
+# from medrisk_health_analytics.boosting import read_from_delta
 # df_spark = spark.table(TRAIN_TABLE)
 # df = df_spark.toPandas()   # or use to_pandas() for automatic warnings
 
@@ -117,11 +117,11 @@ print(f"Target balance: {df['TARGET'].value_counts(normalize=True).to_dict()}")
 display(df.head(3))
 
 # COMMAND ----------
-# MAGIC %md ## 4. Feature engineering with medrisk-features pipeline
+# MAGIC %md ## 4. Feature engineering with medrisk-health-analytics pipeline
 
 # COMMAND ----------
 
-from medrisk_features import FeatureEngineeringPipeline, SchemaValidationError
+from medrisk_health_analytics import FeatureEngineeringPipeline, SchemaValidationError
 
 # Drop id columns and target before passing to the pipeline
 df_for_engineering = df.drop(columns=ID_COLUMNS + [TARGET_COLUMN])
@@ -161,7 +161,7 @@ display(df_full.head(3))
 
 # COMMAND ----------
 
-from medrisk_features.boosting import TrainingConfig, train_boosting_model
+from medrisk_health_analytics.boosting import TrainingConfig, train_boosting_model
 
 config = TrainingConfig(
     # Data
@@ -251,7 +251,7 @@ if result.registered_model_version:
 
 # COMMAND ----------
 
-from medrisk_features.boosting import predict_with_registered_model
+from medrisk_health_analytics.boosting import predict_with_registered_model
 
 # Simulate new unseen data (same raw format, no feature engineering needed)
 df_scoring = df.sample(100, random_state=99).drop(columns=[TARGET_COLUMN])
@@ -300,7 +300,7 @@ display(predictions.head(10))
 # MAGIC
 # MAGIC | Component | What was used |
 # MAGIC |-----------|---------------|
-# MAGIC | Feature engineering | `FeatureEngineeringPipeline` (medrisk-features) |
+# MAGIC | Feature engineering | `FeatureEngineeringPipeline` (medrisk-health-analytics) |
 # MAGIC | Model | `BoostingModelFactory.create("xgboost")` |
 # MAGIC | Preprocessing | `TabularPreprocessor` (median imputation + ordinal encoding) |
 # MAGIC | PyfuncModel | `BoostingPyFuncModel(mlflow.pyfunc.PythonModel)` |

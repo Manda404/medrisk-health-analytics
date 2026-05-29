@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from medrisk_features.features import BehavioralFeatureEngineer
+from medrisk_health_analytics.features import BehavioralFeatureEngineer
 
 
 def test_behavioral_features_created(full_df, logger):

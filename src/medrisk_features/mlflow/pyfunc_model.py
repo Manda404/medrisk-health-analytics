@@ -1,5 +1,5 @@
 """
-MedRiskPyFuncModel — mlflow.pyfunc.PythonModel wrapper for medrisk-features.
+MedRiskPyFuncModel — mlflow.pyfunc.PythonModel wrapper for medrisk-health-analytics.
 
 This module wraps the FeatureEngineeringPipeline inside a standard
 mlflow.pyfunc.PythonModel so that the entire feature engineering logic
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
 class MedRiskPyFuncModel:
     """
-    MLflow PythonModel wrapper for the medrisk-features pipeline.
+    MLflow PythonModel wrapper for the medrisk-health-analytics pipeline.
 
     This class encapsulates the full FeatureEngineeringPipeline inside
     the mlflow.pyfunc contract so it can be serialized, versioned,

@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from medrisk_features.mlflow.pyfunc_model import MedRiskPyFuncModel
+from medrisk_health_analytics.mlflow.pyfunc_model import MedRiskPyFuncModel
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -28,7 +28,7 @@ from medrisk_features.mlflow.pyfunc_model import MedRiskPyFuncModel
 
 def _make_pipeline_mock(full_df):
     """Return a lightweight mock pipeline that calls the real transform."""
-    from medrisk_features import FeatureEngineeringPipeline
+    from medrisk_health_analytics import FeatureEngineeringPipeline
 
     pipeline = FeatureEngineeringPipeline(validate_schema=False)
     return pipeline
@@ -153,7 +153,7 @@ class TestMedRiskPyFuncModel:
 
 class TestPipelineLogResult:
     def test_dataclass_fields(self):
-        from medrisk_features.mlflow.tracker import PipelineLogResult
+        from medrisk_health_analytics.mlflow.tracker import PipelineLogResult
 
         result = PipelineLogResult(
             run_id="abc123",
@@ -171,7 +171,7 @@ class TestPipelineLogResult:
         assert len(result.feature_names) == 2
 
     def test_default_empty_collections(self):
-        from medrisk_features.mlflow.tracker import PipelineLogResult
+        from medrisk_health_analytics.mlflow.tracker import PipelineLogResult
 
         result = PipelineLogResult(run_id="x", model_uri="runs:/x/m")
         assert result.feature_names == []
@@ -186,14 +186,14 @@ class TestPipelineLogResult:
 
 class TestImportGuards:
     def test_load_pipeline_raises_import_error_without_mlflow(self):
-        from medrisk_features.mlflow.tracker import load_pipeline
+        from medrisk_health_analytics.mlflow.tracker import load_pipeline
 
         with patch.dict("sys.modules", {"mlflow": None, "mlflow.pyfunc": None}):
             with pytest.raises(ImportError, match="mlflow"):
                 load_pipeline("models:/workspace.schema.model@Champion")
 
     def test_log_pipeline_raises_import_error_without_mlflow(self, full_df):
-        from medrisk_features.mlflow.tracker import log_pipeline
+        from medrisk_health_analytics.mlflow.tracker import log_pipeline
 
         pipeline = _make_pipeline_mock(full_df)
         with patch.dict("sys.modules", {"mlflow": None, "mlflow.pyfunc": None}):

@@ -35,7 +35,7 @@ MODE = dbutils.widgets.get("mode")
 
 # COMMAND ----------
 
-from medrisk_features.boosting import create_train_test_tables
+from medrisk_health_analytics.boosting import create_train_test_tables
 
 result = create_train_test_tables(
     source_table=SOURCE_TABLE,

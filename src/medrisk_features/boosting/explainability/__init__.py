@@ -15,7 +15,7 @@ Public API
 >>> fig = explainer.plot_waterfall(sample_idx=0)
 >>> shap_df = explainer.get_shap_dataframe()
 
-Requires: pip install medrisk-features[explainability]
+Requires: pip install medrisk-health-analytics[explainability]
 """
 
 from medrisk_features.boosting.explainability.shap_explainer import (

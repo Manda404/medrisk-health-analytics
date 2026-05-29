@@ -1,5 +1,5 @@
 import pytest
-from medrisk_features.features import DemographicsFeatureEngineer
+from medrisk_health_analytics.features import DemographicsFeatureEngineer
 
 
 def test_demographics_features_created(full_df, logger):

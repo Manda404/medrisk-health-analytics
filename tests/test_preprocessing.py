@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from medrisk_features.preprocessing import clean_categorical_variables, drop_leakage_columns
+from medrisk_health_analytics.preprocessing import clean_categorical_variables, drop_leakage_columns
 
 
 @pytest.fixture

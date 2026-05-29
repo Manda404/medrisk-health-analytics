@@ -1,9 +1,9 @@
 # =============================================================
 # Databricks Asset Bundle configuration
-# Project: Diabetes Health Analytics
+# Project: medrisk-health-analytics
 #
 # This file defines the Databricks deployment configuration for
-# the Diabetes Health Analytics project.
+# the medrisk-health-analytics MLOps project.
 #
 # Purpose:
 #   - Package the Python project as a wheel using Poetry
@@ -12,9 +12,16 @@
 #   - Support reproducible deployments across dev, staging, and production
 #
 # Project context:
-#   Diabetes Health Analytics is an End-to-End Data Science and MLOps
-#   project for analyzing, profiling, and classifying Diabetes patients
-#   characters using Python, MLflow, Poetry, and Databricks Free Edition.
+#   medrisk-health-analytics is an End-to-End Data Science and MLOps
+#   project for clinical feature engineering, risk classification and
+#   boosting model deployment using Python, MLflow, Poetry, and Databricks.
+#
+# Usage:
+#   databricks bundle validate -t dev
+#   databricks bundle deploy  -t dev
+#   databricks bundle run medrisk_classification_pipeline -t dev
+#
+# BEFORE DEPLOYING: set catalog and schema per target below (search "??").
 # =============================================================
 
 
@@ -42,7 +49,8 @@ include:
 # Python package artifact
 #
 # The project is built as a Python wheel using Poetry.
-# This wheel can then be installed in Databricks jobs.
+# This wheel is installed in Databricks jobs via the
+# python_wheel_task or as a cluster library.
 # =============================================================
 artifacts:
   python_package:
@@ -54,9 +62,15 @@ artifacts:
 # =============================================================
 # Global bundle variables
 #
-# These variables can be reused inside resources/*.yml files.
+# These variables can be referenced inside resources/*.yml with
+# the syntax: ${var.variable_name}
+#
+# NOTE: catalog and schema MUST be overridden in each target
+# (see the targets section below). Leaving them as "??" will
+# cause the bundle validate / deploy to fail.
 # =============================================================
 variables:
+  # ── Git metadata ─────────────────────────────────────────────────────
   git_commit_sha:
     description: Git commit SHA used to identify the deployed version
     default: "local"
@@ -65,46 +79,64 @@ variables:
     description: Git branch name used during deployment
     default: "main"
 
+  # ── Project identity ─────────────────────────────────────────────────
   project_name:
-    description: Logical project name used in Databricks resources
+    description: Logical project name used in Databricks resource names
     default: "medrisk-health-analytics"
 
   package_name:
-    description: Python package name
+    description: >
+      Python import name of the package (NOT the pip package name).
+      Used when referencing the installed wheel in job tasks.
+      The pip package is medrisk-health-analytics;
+      the Python import is medrisk_health_analytics.
     default: "medrisk_health_analytics"
 
+  # ── MLflow ───────────────────────────────────────────────────────────
   mlflow_experiment_name:
     description: MLflow experiment path used to track model training runs
     default: "/Shared/medrisk-health-analytics"
 
+  # ── Scheduler ────────────────────────────────────────────────────────
   schedule_pause_status:
-    description: Pause status for scheduled Databricks jobs
+    description: >
+      Pause status for scheduled Databricks jobs.
+      Use PAUSED for dev/stg, UNPAUSED for prd.
     default: "PAUSED"
 
+  # ── Environment label ────────────────────────────────────────────────
   environment:
-    description: Deployment environment name
+    description: Deployment environment name (dev | stg | prd)
     default: "dev"
 
-
-variables:
+  # ── Unity Catalog ─────────────────────────────────────────────────────
+  # REQUIRED — must be overridden in each target below.
   catalog:
-    description: Unity Catalog catalog used by this environment.
-    default: ??
+    description: >
+      Unity Catalog catalog name for this environment.
+      MUST be overridden per target (no shared default).
+    default: "??"
 
   schema:
-    description: Unity Catalog schema used by this environment.
-    default: ??
-  
-  source_path:
-    description: CSV path or Unity Catalog volume path for the original patient file.
-    default: /Volumes/workspace/mlops_lab/datasets/health/patient.csv
-  target_column:
-    description: Binary classification target column.
-    default: diagnosed_diabetes
-  model_alias:
-    description: Registry alias assigned after a successful training run.
-    default: Champion
+    description: >
+      Unity Catalog schema name for this environment.
+      MUST be overridden per target (no shared default).
+    default: "??"
 
+  # ── Data & model config ──────────────────────────────────────────────
+  source_path:
+    description: CSV path or Unity Catalog volume path for the patient dataset.
+    default: "/Volumes/workspace/mlops_lab/datasets/health/patient.csv"
+
+  target_column:
+    description: Binary classification target column name in the dataset.
+    default: "diagnosed_diabetes"
+
+  model_alias:
+    description: >
+      MLflow Model Registry alias assigned after a successful training run.
+      The batch inference job loads the model at this alias.
+    default: "Champion"
 
 
 # =============================================================
@@ -113,10 +145,12 @@ variables:
 targets:
 
   # -----------------------------------------------------------
-  # Development environment
+  # Development (default)
   #
-  # Used for local development, testing, and experimentation.
-  # Resources are deployed under the current user's workspace.
+  # - Runs under the current user's personal workspace path
+  # - All jobs are PAUSED by default
+  # - Databricks adds the username prefix to resource names
+  #   automatically (mode: development)
   # -----------------------------------------------------------
   dev:
     default: true
@@ -128,18 +162,21 @@ targets:
 
     variables:
       environment: "dev"
+      catalog: "workspace"           # ← set your dev catalog name
+      schema: "mlops_dev"            # ← set your dev schema name
       mlflow_experiment_name: "/Users/${workspace.current_user.userName}/medrisk-health-analytics"
       schedule_pause_status: "PAUSED"
 
 
   # -----------------------------------------------------------
-  # Staging environment
+  # Staging
   #
-  # Used to validate jobs, notebooks, and ML pipelines before
-  # production deployment.
+  # - Deployed to a shared workspace path (/Shared/.bundle/...)
+  # - mode: production ensures stable resource names (no user prefix)
+  # - Jobs remain PAUSED for manual validation before promotion
   # -----------------------------------------------------------
   stg:
-    mode: development
+    mode: production
 
     presets:
       name_prefix: "stg_"
@@ -150,16 +187,18 @@ targets:
 
     variables:
       environment: "stg"
+      catalog: "workspace"           # ← set your staging catalog name
+      schema: "mlops_stg"            # ← set your staging schema name
       mlflow_experiment_name: "/Shared/stg-medrisk-health-analytics"
       schedule_pause_status: "PAUSED"
 
 
   # -----------------------------------------------------------
-  # Production environment
+  # Production
   #
-  # Used for stable, production-like execution.
-  # For a real production environment, schedule_pause_status
-  # would usually be set to UNPAUSED.
+  # - mode: production — stable names, run_as enforced by Databricks
+  # - schedule_pause_status: UNPAUSED — jobs run on their schedule
+  # - Promote only models validated in staging (@Champion alias)
   # -----------------------------------------------------------
   prd:
     mode: production
@@ -173,5 +212,7 @@ targets:
 
     variables:
       environment: "prd"
+      catalog: "workspace"           # ← set your production catalog name
+      schema: "mlops_prd"            # ← set your production schema name
       mlflow_experiment_name: "/Shared/prd-medrisk-health-analytics"
-      schedule_pause_status: "PAUSED"
+      schedule_pause_status: "UNPAUSED"

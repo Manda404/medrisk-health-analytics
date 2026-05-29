@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from medrisk_features.logging import get_logger
+from medrisk_health_analytics.logging import get_logger
 
 
 @pytest.fixture

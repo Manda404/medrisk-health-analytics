@@ -1,5 +1,5 @@
 import pandas as pd
-from medrisk_features.boosting import compute_binary_holdout_metrics
+from medrisk_health_analytics.boosting import compute_binary_holdout_metrics
 
 
 def test_compute_binary_holdout_metrics():

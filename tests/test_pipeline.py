@@ -1,4 +1,4 @@
-from medrisk_features import FeatureEngineeringPipeline
+from medrisk_health_analytics import FeatureEngineeringPipeline
 
 
 def test_pipeline_runs_end_to_end(full_df):

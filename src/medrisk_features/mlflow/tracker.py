@@ -1,5 +1,5 @@
 """
-MLflow tracking utilities for medrisk-features pipelines.
+MLflow tracking utilities for medrisk-health-analytics pipelines.
 
 Provides high-level functions to:
   - serialize and log a FeatureEngineeringPipeline as a pyfunc model
@@ -43,7 +43,7 @@ import pandas as pd
 # mlflow is an optional dependency — imported lazily in each function
 _MLFLOW_NOT_INSTALLED_MSG = (
     "mlflow is required for this feature. Install it with:\n"
-    "  pip install medrisk-features[mlflow]\n"
+    "  pip install medrisk-health-analytics[mlflow]\n"
     "  # or: pip install mlflow"
 )
 
@@ -233,7 +233,7 @@ def log_pipeline(
                 signature=signature,
                 input_example=input_example,
                 pip_requirements=[
-                    f"medrisk-features=={_get_package_version()}",
+                    f"medrisk-health-analytics=={_get_package_version()}",
                     "pandas>=2.0",
                     "numpy>=1.24",
                 ],
@@ -346,7 +346,7 @@ def set_model_alias(
 
 
 def _get_package_version() -> str:
-    """Return the installed medrisk-features version string."""
+    """Return the installed medrisk-health-analytics version string."""
     try:
         from medrisk_features import __version__
 

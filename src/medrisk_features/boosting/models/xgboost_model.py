@@ -4,7 +4,7 @@ XGBoost model wrapper for the medrisk boosting MLOps pipeline.
 Wraps xgboost.XGBClassifier behind the BaseBoostingModel
 interface so the rest of the pipeline never calls xgboost directly.
 
-Installation: pip install medrisk-features[xgboost]
+Installation: pip install medrisk-health-analytics[xgboost]
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ class XGBoostModel(BaseBoostingModel):
             import xgboost as xgb
         except ImportError as exc:
             raise ImportError(
-                "xgboost is required. Install with: pip install medrisk-features[xgboost]"
+                "xgboost is required. Install with: pip install medrisk-health-analytics[xgboost]"
             ) from exc
 
         p = {k: v for k, v in self.params.items() if k != "use_label_encoder"}
@@ -144,7 +144,7 @@ class XGBoostModel(BaseBoostingModel):
             import xgboost as xgb
         except ImportError as exc:
             raise ImportError(
-                "xgboost is required. Install with: pip install medrisk-features[xgboost]"
+                "xgboost is required. Install with: pip install medrisk-health-analytics[xgboost]"
             ) from exc
 
         if not path.endswith(".json"):

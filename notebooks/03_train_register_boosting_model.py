@@ -40,7 +40,7 @@ RANDOM_STATE = int(dbutils.widgets.get("random_state"))
 
 # COMMAND ----------
 
-from medrisk_features.boosting import TrainingConfig, train_boosting_model
+from medrisk_health_analytics.boosting import TrainingConfig, train_boosting_model
 
 df_train = spark.table(TRAIN_TABLE).toPandas()
 

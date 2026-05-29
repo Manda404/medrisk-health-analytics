@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # medrisk-features — Feature Engineering + MLflow Integration
+# MAGIC # medrisk-health-analytics — Feature Engineering + MLflow Integration
 # MAGIC
 # MAGIC This notebook demonstrates the full workflow:
 # MAGIC 1. Install the package from GitHub
@@ -16,7 +16,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install git+https://github.com/Manda404/medrisk-features.git
+# MAGIC %pip install git+https://github.com/Manda404/medrisk-health-analytics.git
 
 # COMMAND ----------
 
@@ -95,7 +95,7 @@ display(df.head(5))
 
 # COMMAND ----------
 
-from medrisk_features import FeatureEngineeringPipeline, SchemaValidationError
+from medrisk_health_analytics import FeatureEngineeringPipeline, SchemaValidationError
 
 pipeline = FeatureEngineeringPipeline(
     age_group_strategy=AGE_GROUP_STRATEGY,
@@ -128,7 +128,7 @@ display(df_enriched.head(5))
 
 # COMMAND ----------
 
-from medrisk_features.mlflow import log_pipeline
+from medrisk_health_analytics.mlflow import log_pipeline
 
 result = log_pipeline(
     pipeline=pipeline,
@@ -157,7 +157,7 @@ print(f"   output features     : {len(result.feature_names)}")
 
 # COMMAND ----------
 
-from medrisk_features.mlflow import set_model_alias
+from medrisk_health_analytics.mlflow import set_model_alias
 
 if result.registered_model_version:
     set_model_alias(
@@ -176,7 +176,7 @@ if result.registered_model_version:
 
 # COMMAND ----------
 
-from medrisk_features.mlflow import load_pipeline
+from medrisk_health_analytics.mlflow import load_pipeline
 
 # Load by alias (Unity Catalog)
 model_uri = f"models:/{REGISTERED_MODEL_NAME}@{MODEL_ALIAS}"

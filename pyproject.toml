@@ -28,7 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-packages = [{ include = "medrisk_features", from = "src" }]
+packages = [{ include = "medrisk_health_analytics", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -45,19 +45,19 @@ shap        = { version = ">=0.42", optional = true }
 matplotlib  = { version = ">=3.7",  optional = true }
 
 [tool.poetry.extras]
-# pip install medrisk-features[mlflow]
+# pip install medrisk-health-analytics[mlflow]
 mlflow = ["mlflow", "scikit-learn"]
-# pip install medrisk-features[xgboost]
+# pip install medrisk-health-analytics[xgboost]
 xgboost = ["xgboost"]
-# pip install medrisk-features[catboost]
+# pip install medrisk-health-analytics[catboost]
 catboost = ["catboost"]
-# pip install medrisk-features[lightgbm]
+# pip install medrisk-health-analytics[lightgbm]
 lightgbm = ["lightgbm"]
-# pip install medrisk-features[explainability]  → SHAP analysis + Matplotlib plots
+# pip install medrisk-health-analytics[explainability]  → SHAP analysis + Matplotlib plots
 explainability = ["shap", "matplotlib"]
-# pip install medrisk-features[boosting]  → all 3 boosting libs + mlflow + explainability
+# pip install medrisk-health-analytics[boosting]  → all 3 boosting libs + mlflow + explainability
 boosting = ["mlflow", "xgboost", "catboost", "lightgbm", "scikit-learn", "shap", "matplotlib"]
-# pip install medrisk-features[all]  → everything
+# pip install medrisk-health-analytics[all]  → everything
 all = ["mlflow", "xgboost", "catboost", "lightgbm", "scikit-learn", "shap", "matplotlib"]
 
 [tool.poetry.group.dev.dependencies]

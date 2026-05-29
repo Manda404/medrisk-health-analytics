@@ -1,6 +1,6 @@
 """Unit tests for MetabolicFeatureEngineer."""
 
-from medrisk_features.features import MetabolicFeatureEngineer
+from medrisk_health_analytics.features import MetabolicFeatureEngineer
 
 
 def test_metabolic_features_created(full_df, logger):

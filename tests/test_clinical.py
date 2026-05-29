@@ -1,7 +1,7 @@
 """Unit tests for ClinicalFeatureEngineer."""
 
 import pandas as pd
-from medrisk_features.features import ClinicalFeatureEngineer
+from medrisk_health_analytics.features import ClinicalFeatureEngineer
 
 
 def test_lipid_ratio_hdl_ldl_created(full_df, logger):

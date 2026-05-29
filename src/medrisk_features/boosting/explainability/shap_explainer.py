@@ -2,8 +2,7 @@
 BoostingShapExplainer — SHAP analysis for XGBoost / CatBoost / LightGBM.
 
 This module wraps the SHAP library's TreeExplainer behind a clean, unified
-interface that is compatible with all three boosting backends supported by
-medrisk-features, and produces Matplotlib figures suitable for Databricks
+interface that is compatible with all three boosting backends supported by medrisk-health-analytics, and produces Matplotlib figures suitable for Databricks
 notebooks (display(fig)) or local environments (fig.savefig / plt.show).
 
 Three plot types are supported:
@@ -20,7 +19,7 @@ SHAP values in polynomial time, without sampling approximations.
 
 Installation
 ------------
-pip install medrisk-features[explainability]   # adds shap + matplotlib
+pip install medrisk-health-analytics[explainability]   # adds shap + matplotlib
 
 Usage (Databricks notebook)
 ----------------------------
@@ -63,7 +62,7 @@ _logger = get_logger("medrisk-shap")
 
 _SHAP_NOT_INSTALLED = (
     "shap is required for explainability features.\n"
-    "Install with:  pip install medrisk-features[explainability]\n"
+    "Install with:  pip install medrisk-health-analytics[explainability]\n"
     "           or: pip install shap"
 )
 
@@ -128,7 +127,7 @@ class BoostingShapExplainer:
 
     Provides a single, consistent interface for computing and visualising
     SHAP (SHapley Additive exPlanations) values from XGBoost, CatBoost,
-    or LightGBM models trained via the medrisk-features boosting pipeline.
+    or LightGBM models trained via the medrisk-health-analytics boosting pipeline.
 
     Parameters
     ----------

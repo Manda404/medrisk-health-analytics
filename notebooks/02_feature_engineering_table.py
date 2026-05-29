@@ -37,7 +37,7 @@ MODE = dbutils.widgets.get("mode")
 
 import pandas as pd
 
-from medrisk_features import FeatureEngineeringPipeline
+from medrisk_health_analytics import FeatureEngineeringPipeline
 
 df = spark.table(INPUT_TABLE).toPandas()
 

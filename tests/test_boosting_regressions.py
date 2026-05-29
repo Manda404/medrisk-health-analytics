@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import pytest
-from medrisk_features.boosting.models.factory import BoostingModelFactory
-from medrisk_features.boosting.pyfunc.boosting_pyfunc_model import BoostingPyFuncModel
+from medrisk_health_analytics.boosting.models.factory import BoostingModelFactory
+from medrisk_health_analytics.boosting.pyfunc.boosting_pyfunc_model import BoostingPyFuncModel
 
 
 class DummyPreprocessor:

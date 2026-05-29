@@ -1,5 +1,5 @@
 """
-medrisk-features
+medrisk-health-analytics
 ================
 Production-ready Python package for medical, metabolic and lifestyle
 feature engineering in healthcare machine learning.

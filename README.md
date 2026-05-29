@@ -1,6 +1,6 @@
-# medrisk-features
+# medrisk-health-analytics
 
-![CI](https://github.com/Manda404/medrisk-features/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Manda404/medrisk-health-analytics/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)
 ![Version](https://img.shields.io/badge/version-0.2.0-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -8,7 +8,7 @@
 [![Databricks](https://img.shields.io/badge/Databricks-compatible-red?logo=databricks)](https://databricks.com)
 [![MLflow](https://img.shields.io/badge/MLflow-pyfunc-blue?logo=mlflow)](https://mlflow.org)
 
-**medrisk-features** is a production-ready Python package for **clinical feature engineering and boosting MLOps on Databricks**.
+**medrisk-health-analytics** is a production-ready Python package for **clinical feature engineering and boosting MLOps on Databricks**.
 
 It gives you three complementary layers that can be used independently or together:
 
@@ -22,7 +22,7 @@ It gives you three complementary layers that can be used independently or togeth
 
 ## Table of Contents
 
-1. [Why medrisk-features?](#1-why-medrisk-features)
+1. [Why medrisk-health-analytics?](#1-why-medrisk-health-analytics)
 2. [Installation](#2-installation)
 3. [Quick Start — 5 minutes to your first enriched DataFrame](#3-quick-start)
 4. [Feature Engineering Pipeline — deep dive](#4-feature-engineering-pipeline)
@@ -50,11 +50,11 @@ It gives you three complementary layers that can be used independently or togeth
 
 ---
 
-## 1. Why medrisk-features?
+## 1. Why medrisk-health-analytics?
 
 Building healthcare ML models requires turning raw patient measurements into meaningful, clinically-interpretable features. Without a structured approach, teams end up reimplementing the same glucose/BMI/lipid logic across projects, often with subtle threshold errors and no traceability to the underlying guidelines.
 
-**medrisk-features solves this by providing:**
+**medrisk-health-analytics solves this by providing:**
 
 - **Clinically accurate thresholds** hard-coded against ADA 2023, WHO, JNC 7, and NCEP-ATP III — no more guessing where "normal" glucose ends.
 - **A single `pipeline.transform(df)` call** that takes raw measurements and returns 40+ engineered features.
@@ -69,13 +69,13 @@ Building healthcare ML models requires turning raw patient measurements into mea
 
 ```python
 # Core feature engineering only
-%pip install git+https://github.com/Manda404/medrisk-features.git
+%pip install git+https://github.com/Manda404/medrisk-health-analytics.git
 
 # With MLflow tracking support
-%pip install "git+https://github.com/Manda404/medrisk-features.git#egg=medrisk-features[mlflow]"
+%pip install "git+https://github.com/Manda404/medrisk-health-analytics.git#egg=medrisk-health-analytics[mlflow]"
 
 # Full boosting stack — recommended for end-to-end workflows
-%pip install "git+https://github.com/Manda404/medrisk-features.git#egg=medrisk-features[boosting]"
+%pip install "git+https://github.com/Manda404/medrisk-health-analytics.git#egg=medrisk-health-analytics[boosting]"
 
 # Always restart Python after %pip install in Databricks
 dbutils.library.restartPython()
@@ -85,15 +85,15 @@ dbutils.library.restartPython()
 
 ```bash
 # Core package (no ML libraries)
-pip install git+https://github.com/Manda404/medrisk-features.git
+pip install git+https://github.com/Manda404/medrisk-health-analytics.git
 
 # With optional extras
-pip install "medrisk-features[mlflow]"      # + MLflow tracking
-pip install "medrisk-features[xgboost]"     # + XGBoost
-pip install "medrisk-features[catboost]"    # + CatBoost
-pip install "medrisk-features[lightgbm]"    # + LightGBM
-pip install "medrisk-features[boosting]"    # + all 3 boosting libs + sklearn + mlflow
-pip install "medrisk-features[all]"         # everything
+pip install "medrisk-health-analytics[mlflow]"      # + MLflow tracking
+pip install "medrisk-health-analytics[xgboost]"     # + XGBoost
+pip install "medrisk-health-analytics[catboost]"    # + CatBoost
+pip install "medrisk-health-analytics[lightgbm]"    # + LightGBM
+pip install "medrisk-health-analytics[boosting]"    # + all 3 boosting libs + sklearn + mlflow
+pip install "medrisk-health-analytics[all]"         # everything
 ```
 
 > **Which extra should I use?**
@@ -104,8 +104,8 @@ pip install "medrisk-features[all]"         # everything
 ### With Poetry (for library development)
 
 ```bash
-git clone https://github.com/Manda404/medrisk-features.git
-cd medrisk-features
+git clone https://github.com/Manda404/medrisk-health-analytics.git
+cd medrisk-health-analytics
 poetry install
 ```
 
@@ -143,7 +143,7 @@ df = pd.DataFrame({
 ### Step 2 — Run the pipeline
 
 ```python
-from medrisk_features import FeatureEngineeringPipeline
+from medrisk_health_analytics import FeatureEngineeringPipeline
 
 pipeline = FeatureEngineeringPipeline(
     age_group_strategy="detailed",  # "detailed" (fine bands) or "coarse" (3 groups)
@@ -194,7 +194,7 @@ That's it. The pipeline produces numeric and categorical features ready for any 
 ### 4.1 Initialisation
 
 ```python
-from medrisk_features import FeatureEngineeringPipeline
+from medrisk_health_analytics import FeatureEngineeringPipeline
 
 pipeline = FeatureEngineeringPipeline(
     age_group_strategy="detailed",  # "detailed" | "coarse"
@@ -292,7 +292,7 @@ The pipeline validates your DataFrame before doing any work. Missing required co
 ### 4.4 Error handling
 
 ```python
-from medrisk_features import FeatureEngineeringPipeline, MissingRequiredColumnError
+from medrisk_health_analytics import FeatureEngineeringPipeline, MissingRequiredColumnError
 
 pipeline = FeatureEngineeringPipeline(validate_schema=True)
 
@@ -307,7 +307,7 @@ except MissingRequiredColumnError as e:
 All exceptions in the package inherit from `MedRiskError` and are importable from the top-level module:
 
 ```python
-from medrisk_features import (
+from medrisk_health_analytics import (
     MedRiskError,              # base class for all package exceptions
     SchemaValidationError,     # schema validation failed
     MissingRequiredColumnError,# required column absent from input DataFrame
@@ -325,8 +325,8 @@ The feature engineering pipeline itself can be versioned in MLflow, registered i
 ### Log the pipeline after fitting
 
 ```python
-from medrisk_features import FeatureEngineeringPipeline
-from medrisk_features.mlflow import log_pipeline, load_pipeline, set_model_alias
+from medrisk_health_analytics import FeatureEngineeringPipeline
+from medrisk_health_analytics.mlflow import log_pipeline, load_pipeline, set_model_alias
 
 # 1. Build and run the pipeline
 pipeline = FeatureEngineeringPipeline(validate_schema=True)
@@ -378,7 +378,7 @@ loaded = load_pipeline(result.model_uri)
 
 ## 6. Boosting MLOps Layer
 
-The `medrisk_features.boosting` subpackage provides a **one-call training pipeline** for XGBoost, CatBoost, and LightGBM, with built-in preprocessing, MLflow experiment tracking, model registration, and structured batch inference.
+The `medrisk_health_analytics.boosting` subpackage provides a **one-call training pipeline** for XGBoost, CatBoost, and LightGBM, with built-in preprocessing, MLflow experiment tracking, model registration, and structured batch inference.
 
 The architecture looks like this:
 
@@ -409,7 +409,7 @@ raw DataFrame
 `TrainingConfig` is the single object that controls the entire training run. All fields have sensible defaults.
 
 ```python
-from medrisk_features.boosting import TrainingConfig, SplitStrategy, TaskType
+from medrisk_health_analytics.boosting import TrainingConfig, SplitStrategy, TaskType
 
 config = TrainingConfig(
     # ── Target & identifiers ─────────────────────────────────────────────
@@ -454,7 +454,7 @@ config = TrainingConfig(
 ### 6.2 Training
 
 ```python
-from medrisk_features.boosting import train_boosting_model
+from medrisk_health_analytics.boosting import train_boosting_model
 
 result = train_boosting_model(df=df_train, config=config)
 
@@ -489,7 +489,7 @@ result = train_boosting_model(df=df_train, config=config)
 If you kept a completely separate holdout table in Unity Catalog, evaluate the registered model on it without retraining:
 
 ```python
-from medrisk_features.boosting import evaluate_registered_model_on_holdout
+from medrisk_health_analytics.boosting import evaluate_registered_model_on_holdout
 
 eval_result = evaluate_registered_model_on_holdout(
     model_uri="models:/workspace.analytics.diabetes_model@Champion",
@@ -508,7 +508,7 @@ print(eval_result.metrics)     # full dict of all metrics
 `predict_with_registered_model()` loads a registered model and returns a clean prediction DataFrame — Spark or Pandas input, both accepted.
 
 ```python
-from medrisk_features.boosting import predict_with_registered_model
+from medrisk_health_analytics.boosting import predict_with_registered_model
 
 # From a Pandas DataFrame
 predictions = predict_with_registered_model(
@@ -541,14 +541,14 @@ After training a model with `train_boosting_model()`, you often need to answer: 
 
 **Install the extra:**
 ```bash
-pip install "medrisk-features[explainability]"
-# or: pip install "medrisk-features[boosting]"  (already includes shap + matplotlib)
+pip install "medrisk-health-analytics[explainability]"
+# or: pip install "medrisk-health-analytics[boosting]"  (already includes shap + matplotlib)
 ```
 
 ### 7.1 Quick start
 
 ```python
-from medrisk_features.boosting import BoostingShapExplainer
+from medrisk_health_analytics.boosting import BoostingShapExplainer
 
 # After training:
 # result = train_boosting_model(df=df_full, config=config)
@@ -668,7 +668,7 @@ This section walks through a real end-to-end workflow: from a raw Unity Catalog 
 ### Cell 1 — Install
 
 ```python
-%pip install "git+https://github.com/Manda404/medrisk-features.git#egg=medrisk-features[boosting]"
+%pip install "git+https://github.com/Manda404/medrisk-health-analytics.git#egg=medrisk-health-analytics[boosting]"
 dbutils.library.restartPython()
 ```
 
@@ -692,7 +692,7 @@ EXPERIMENT  = f"/Shared/experiments/{SCHEMA}/diabetes"
 ### Cell 3 — Split raw data into train / test tables
 
 ```python
-from medrisk_features.boosting import create_train_test_tables
+from medrisk_health_analytics.boosting import create_train_test_tables
 
 split = create_train_test_tables(
     source_table=SRC_TABLE,
@@ -712,8 +712,8 @@ print(f"Train: {split.train_count:,} rows | Test: {split.test_count:,} rows")
 
 ```python
 import pandas as pd
-from medrisk_features import FeatureEngineeringPipeline
-from medrisk_features.boosting import to_pandas
+from medrisk_health_analytics import FeatureEngineeringPipeline
+from medrisk_health_analytics.boosting import to_pandas
 
 df = to_pandas(spark.table(TRAIN_TABLE))   # warns if > 5M rows
 
@@ -727,7 +727,7 @@ print(f"Features: {df.shape[1]} raw → {df_features.shape[1]} engineered")
 ### Cell 5 — Train and register the model
 
 ```python
-from medrisk_features.boosting import TrainingConfig, train_boosting_model
+from medrisk_health_analytics.boosting import TrainingConfig, train_boosting_model
 
 config = TrainingConfig(
     target_column=TARGET,
@@ -748,7 +748,7 @@ print(f"Model URI:   {result.model_uri}")
 ### Cell 6 — Evaluate on the holdout test table
 
 ```python
-from medrisk_features.boosting import evaluate_registered_model_on_holdout
+from medrisk_health_analytics.boosting import evaluate_registered_model_on_holdout
 
 eval_result = evaluate_registered_model_on_holdout(
     model_uri=result.model_uri,
@@ -775,7 +775,7 @@ print(f"Version {result.registered_model_version} → @Champion")
 ### Cell 8 — Batch inference and write results back
 
 ```python
-from medrisk_features.boosting import predict_with_registered_model
+from medrisk_health_analytics.boosting import predict_with_registered_model
 
 predict_with_registered_model(
     model_uri=f"models:/{MODEL_NAME}@Champion",
@@ -792,7 +792,7 @@ display(spark.table(PRED_TABLE).limit(5))
 ## 9. Project Structure
 
 ```
-medrisk-features/
+medrisk-health-analytics/
 │
 ├── src/medrisk_features/
 │   ├── __init__.py                  ← v0.2.0, public exports
@@ -883,8 +883,8 @@ medrisk-features/
 
 ```bash
 # Clone and install all dev dependencies
-git clone https://github.com/Manda404/medrisk-features.git
-cd medrisk-features
+git clone https://github.com/Manda404/medrisk-health-analytics.git
+cd medrisk-health-analytics
 poetry install
 
 # Run the full CI check suite locally
@@ -935,7 +935,7 @@ CI runs on every push to `main` and every pull request, testing Python 3.9, 3.10
 - SHAP explainability: `BoostingShapExplainer` with summary, bar, and waterfall plots
 
 ### Planned 🔜
-- PyPI release — `pip install medrisk-features`
+- PyPI release — `pip install medrisk-health-analytics`
 - Great Expectations schema contracts
 - YAML-based training configs: `configs/training_config.yaml`
 - Property-based testing with Hypothesis
@@ -958,11 +958,11 @@ This project is released under the **MIT License** — free to use, modify, and 
 Built on top of clinical guidelines (ADA, WHO, ESC, JNC, NCEP-ATP III) and open-source MLOps tooling (MLflow, Databricks Unity Catalog, scikit-learn, XGBoost, CatBoost, LightGBM).
 
 ```bibtex
-@software{medrisk_features,
+@software{medrisk_health_analytics,
   author  = {Surel, Rostand},
-  title   = {medrisk-features: Clinical Feature Engineering and Boosting MLOps for Healthcare ML},
+  title   = {medrisk-health-analytics: Clinical Feature Engineering and Boosting MLOps for Healthcare ML},
   version = {0.2.0},
   year    = {2025},
-  url     = {https://github.com/Manda404/medrisk-features}
+  url     = {https://github.com/Manda404/medrisk-health-analytics}
 }
 ```

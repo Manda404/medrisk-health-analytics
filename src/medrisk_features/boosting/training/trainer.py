@@ -88,7 +88,7 @@ def train_boosting_model(
 
     if importlib.util.find_spec("mlflow") is None:
         raise ImportError(
-            "mlflow is required for training. " "Install with: pip install medrisk-features[mlflow]"
+            "mlflow is required for training. " "Install with: pip install medrisk-health-analytics[mlflow]"
         )
 
     # ── Resolve configuration ─────────────────────────────────────────────────
@@ -367,7 +367,7 @@ def _log_to_mlflow(
                 signature=signature,
                 input_example=input_example,
                 pip_requirements=[
-                    f"medrisk-features=={__version__}",
+                    f"medrisk-health-analytics=={__version__}",
                     f"{config.model_type}",
                     "pandas>=2.0",
                     "numpy>=1.24",

@@ -5,7 +5,7 @@ CatBoost natively handles categorical features without encoding,
 which makes it particularly well-suited for clinical tabular data
 where many variables are ordinal or nominal categories.
 
-Installation: pip install medrisk-features[catboost]
+Installation: pip install medrisk-health-analytics[catboost]
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ class CatBoostModel(BaseBoostingModel):
             from catboost import CatBoostClassifier
         except ImportError as exc:
             raise ImportError(
-                "catboost is required. Install with: pip install medrisk-features[catboost]"
+                "catboost is required. Install with: pip install medrisk-health-analytics[catboost]"
             ) from exc
 
         p = dict(self.params)
@@ -159,7 +159,7 @@ class CatBoostModel(BaseBoostingModel):
             from catboost import CatBoostClassifier
         except ImportError as exc:
             raise ImportError(
-                "catboost is required. Install with: pip install medrisk-features[catboost]"
+                "catboost is required. Install with: pip install medrisk-health-analytics[catboost]"
             ) from exc
 
         if not path.endswith(".cbm"):

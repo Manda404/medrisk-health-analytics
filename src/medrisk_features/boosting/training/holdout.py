@@ -83,7 +83,7 @@ def evaluate_registered_model_on_holdout(
     except ImportError as exc:
         raise ImportError(
             "mlflow is required for holdout evaluation. "
-            "Install with: pip install medrisk-features[mlflow]"
+            "Install with: pip install medrisk-health-analytics[mlflow]"
         ) from exc
 
     from medrisk_features.boosting.utils.spark_utils import (

@@ -35,7 +35,7 @@ if not MODEL_VERSION:
 
 # COMMAND ----------
 
-from medrisk_features.mlflow import set_model_alias
+from medrisk_health_analytics.mlflow import set_model_alias
 
 set_model_alias(
     registered_model_name=REGISTERED_MODEL_NAME,

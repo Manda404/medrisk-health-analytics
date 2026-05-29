@@ -1,7 +1,7 @@
 """
 medrisk_features.mlflow
 =======================
-Optional MLflow integration for the medrisk-features pipeline.
+Optional MLflow integration for the medrisk-health-analytics pipeline.
 
 This subpackage provides:
   - MedRiskPyFuncModel : mlflow.pyfunc.PythonModel wrapper for the pipeline
@@ -10,7 +10,7 @@ This subpackage provides:
   - set_model_alias    : assign a Unity Catalog alias (e.g. 'Champion')
 
 Requires mlflow to be installed:
-  pip install medrisk-features[mlflow]
+  pip install medrisk-health-analytics[mlflow]
   # or: pip install mlflow
 
 Usage

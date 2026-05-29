@@ -32,7 +32,7 @@ MODE = dbutils.widgets.get("mode")
 # COMMAND ----------
 
 import pandas as pd
-from medrisk_features.boosting import evaluate_registered_model_on_holdout
+from medrisk_health_analytics.boosting import evaluate_registered_model_on_holdout
 
 result = evaluate_registered_model_on_holdout(
     model_uri=MODEL_URI,

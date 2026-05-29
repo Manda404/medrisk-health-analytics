@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from medrisk_features.features import LifestyleFeatureEngineer
+from medrisk_health_analytics.features import LifestyleFeatureEngineer
 
 
 @pytest.fixture

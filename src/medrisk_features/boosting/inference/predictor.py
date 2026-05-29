@@ -80,7 +80,7 @@ def predict_with_registered_model(
     except ImportError as exc:
         raise ImportError(
             "mlflow is required for inference. "
-            "Install with: pip install medrisk-features[mlflow]"
+            "Install with: pip install medrisk-health-analytics[mlflow]"
         ) from exc
 
     from medrisk_features.boosting.utils.spark_utils import (

@@ -1,5 +1,5 @@
 import pytest
-from medrisk_features.validation import DataSchemaValidator, SchemaValidationError
+from medrisk_health_analytics.validation import DataSchemaValidator, SchemaValidationError
 
 
 def test_schema_validation_passes(minimal_df, logger):

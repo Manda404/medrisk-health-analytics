@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from medrisk_features.features import MedicalFeatureEngineer
+from medrisk_health_analytics.features import MedicalFeatureEngineer
 
 
 def test_medical_features_created(full_df, logger):

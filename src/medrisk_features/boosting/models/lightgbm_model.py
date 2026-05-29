@@ -5,7 +5,7 @@ LightGBM is included as an optional third boosting option.
 It is generally faster than XGBoost on large datasets and handles
 categorical features natively (similar to CatBoost).
 
-Installation: pip install medrisk-features[lightgbm]
+Installation: pip install medrisk-health-analytics[lightgbm]
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ class LightGBMModel(BaseBoostingModel):
             import lightgbm as lgb
         except ImportError as exc:
             raise ImportError(
-                "lightgbm is required. Install with: pip install medrisk-features[lightgbm]"
+                "lightgbm is required. Install with: pip install medrisk-health-analytics[lightgbm]"
             ) from exc
 
         p = dict(self.params)
@@ -143,7 +143,7 @@ class LightGBMModel(BaseBoostingModel):
             import lightgbm as lgb
         except ImportError as exc:
             raise ImportError(
-                "lightgbm is required. Install with: pip install medrisk-features[lightgbm]"
+                "lightgbm is required. Install with: pip install medrisk-health-analytics[lightgbm]"
             ) from exc
 
         if not path.endswith(".txt"):
