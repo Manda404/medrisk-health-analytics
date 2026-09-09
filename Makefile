@@ -1,11 +1,11 @@
-.PHONY: install test lint format typecheck check clean help
+.PHONY: install test lint format typecheck audit build check clean help
 
 # ---------------------------------------------------------------------------
 # Variables
 # ---------------------------------------------------------------------------
 PYTHON     := python
 POETRY     := poetry
-SRC        := src/medrisk_features
+SRC        := src/medrisk_health_analytics
 TESTS      := tests
 
 # ---------------------------------------------------------------------------
@@ -41,10 +41,17 @@ format-check:  ## Check formatting without applying changes (for CI)
 typecheck:  ## Run mypy type checker
 	$(POETRY) run mypy $(SRC)
 
+audit:  ## Audit installed dependencies for known vulnerabilities
+	$(POETRY) run pip-audit --local --skip-editable
+
+build:  ## Build wheel and source distribution
+	$(POETRY) check --lock
+	$(POETRY) build
+
 # ---------------------------------------------------------------------------
 # All checks (CI equivalent)
 # ---------------------------------------------------------------------------
-check: lint format-check typecheck test  ## Run all checks (lint + format + types + tests)
+check: lint format-check typecheck test build  ## Run all quality and packaging checks
 
 # ---------------------------------------------------------------------------
 # Clean

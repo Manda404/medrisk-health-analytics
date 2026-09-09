@@ -35,8 +35,11 @@ def compute_classification_metrics(
     from sklearn.metrics import (
         accuracy_score,
         average_precision_score,
+        balanced_accuracy_score,
+        brier_score_loss,
         confusion_matrix,
         f1_score,
+        matthews_corrcoef,
         precision_score,
         recall_score,
         roc_auc_score,
@@ -44,15 +47,20 @@ def compute_classification_metrics(
 
     metrics: Dict[str, float] = {
         f"{prefix}_accuracy": round(accuracy_score(y_true, y_pred), 6),
+        f"{prefix}_balanced_accuracy": round(balanced_accuracy_score(y_true, y_pred), 6),
         f"{prefix}_precision": round(precision_score(y_true, y_pred, zero_division=0), 6),
         f"{prefix}_recall": round(recall_score(y_true, y_pred, zero_division=0), 6),
         f"{prefix}_f1": round(f1_score(y_true, y_pred, zero_division=0), 6),
         f"{prefix}_roc_auc": round(roc_auc_score(y_true, y_proba), 6),
         f"{prefix}_avg_precision": round(average_precision_score(y_true, y_proba), 6),
+        f"{prefix}_mcc": round(matthews_corrcoef(y_true, y_pred), 6),
+        f"{prefix}_brier_score": round(brier_score_loss(y_true, y_proba), 6),
     }
 
     # Confusion matrix components
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    metrics[f"{prefix}_specificity"] = round(tn / (tn + fp), 6) if tn + fp else 0.0
+    metrics[f"{prefix}_npv"] = round(tn / (tn + fn), 6) if tn + fn else 0.0
     metrics[f"{prefix}_tn"] = int(tn)
     metrics[f"{prefix}_fp"] = int(fp)
     metrics[f"{prefix}_fn"] = int(fn)

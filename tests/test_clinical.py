@@ -1,6 +1,7 @@
 """Unit tests for ClinicalFeatureEngineer."""
 
 import pandas as pd
+
 from medrisk_health_analytics.features import ClinicalFeatureEngineer
 
 
@@ -71,3 +72,17 @@ def test_original_df_not_mutated(full_df, logger):
     fe = ClinicalFeatureEngineer(logger=logger)
     fe.transform(full_df)
     assert set(full_df.columns) == original_cols
+
+
+def test_cardiometabolic_ratios_and_pressures_are_created(full_df, logger):
+    df_out = ClinicalFeatureEngineer(logger=logger).transform(full_df)
+
+    expected = {
+        "non_hdl_cholesterol",
+        "triglyceride_hdl_ratio",
+        "glycemic_excursion_ratio",
+        "pulse_pressure",
+        "mean_arterial_pressure",
+    }
+    assert expected.issubset(df_out.columns)
+    assert (df_out[list(expected)].notna()).all().all()

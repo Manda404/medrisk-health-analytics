@@ -128,7 +128,7 @@ class XGBoostModel(BaseBoostingModel):
         self._model.save_model(path)
 
     @classmethod
-    def load(cls, path: str, task_type: str = "binary_classification") -> "XGBoostModel":
+    def load(cls, path: str, task_type: str = "binary_classification") -> XGBoostModel:
         """
         Deserialize a model from disk.
 

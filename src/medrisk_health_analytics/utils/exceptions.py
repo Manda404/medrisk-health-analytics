@@ -65,13 +65,12 @@ class InvalidConfigurationError(MedRiskError):
         self,
         parameter: str,
         value: object,
-        valid_values: list,
+        valid_values: object,
     ) -> None:
         self.parameter = parameter
         self.value = value
         self.valid_values = valid_values
         message = (
-            f"Invalid value '{value}' for parameter '{parameter}'. "
-            f"Valid options: {valid_values}"
+            f"Invalid value '{value}' for parameter '{parameter}'. Valid options: {valid_values}"
         )
         super().__init__(message)

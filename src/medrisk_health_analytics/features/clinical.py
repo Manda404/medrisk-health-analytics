@@ -56,6 +56,9 @@ class ClinicalFeatureEngineer:
             df["cholesterol_hdl_ratio"] = df["cholesterol_total"] / df["hdl_cholesterol"].replace(
                 0, np.nan
             )
+            df["non_hdl_cholesterol"] = (df["cholesterol_total"] - df["hdl_cholesterol"]).clip(
+                lower=0
+            )
         else:
             self.logger.warning(
                 "Total cholesterol or HDL missing — cholesterol_hdl_ratio not created."
@@ -76,9 +79,21 @@ class ClinicalFeatureEngineer:
         # --------------------------------------------------
         if {"glucose_postprandial", "glucose_fasting"}.issubset(df.columns):
             df["glucose_variability"] = df["glucose_postprandial"] - df["glucose_fasting"]
+            df["glycemic_excursion_ratio"] = df["glucose_postprandial"] / df[
+                "glucose_fasting"
+            ].replace(0, np.nan)
         else:
             self.logger.warning(
                 "Postprandial or fasting glucose missing — glucose_variability not created."
+            )
+
+        if {"systolic_bp", "diastolic_bp"}.issubset(df.columns):
+            df["pulse_pressure"] = (df["systolic_bp"] - df["diastolic_bp"]).clip(lower=0)
+            df["mean_arterial_pressure"] = (df["systolic_bp"] + 2 * df["diastolic_bp"]) / 3
+
+        if {"triglycerides", "hdl_cholesterol"}.issubset(df.columns):
+            df["triglyceride_hdl_ratio"] = df["triglycerides"] / df["hdl_cholesterol"].replace(
+                0, np.nan
             )
 
         self.logger.info("Clinical interaction features created successfully.")

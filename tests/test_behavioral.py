@@ -2,6 +2,7 @@
 
 import pandas as pd
 import pytest
+
 from medrisk_health_analytics.features import BehavioralFeatureEngineer
 
 
@@ -75,3 +76,10 @@ def test_original_df_not_mutated(full_df, logger):
     fe = BehavioralFeatureEngineer(logger=logger)
     fe.transform(full_df)
     assert set(full_df.columns) == original_cols
+
+
+def test_activity_deficit_and_sleep_deviation_are_bounded(full_df, logger):
+    df_out = BehavioralFeatureEngineer(logger=logger).transform(full_df)
+
+    assert df_out["activity_deficit_ratio"].between(0, 1).all()
+    assert (df_out["sleep_deviation_hours"] >= 0).all()

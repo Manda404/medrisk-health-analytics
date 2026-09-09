@@ -88,6 +88,7 @@ def predict_with_registered_model(
         to_pandas,
         write_to_delta,
     )
+    from medrisk_health_analytics.mlflow.signature import make_nullable_safe_sample
 
     # ── 1. Load input data ────────────────────────────────────────────────────
     if input_df is None and input_table is None:
@@ -110,7 +111,7 @@ def predict_with_registered_model(
     loaded_model = mlflow.pyfunc.load_model(model_uri)
 
     # ── 3. Run inference ──────────────────────────────────────────────────────
-    predictions = loaded_model.predict(df_pandas)
+    predictions = loaded_model.predict(make_nullable_safe_sample(df_pandas))
 
     # ── 4. Optionally write results to Unity Catalog ──────────────────────────
     if output_table is not None:

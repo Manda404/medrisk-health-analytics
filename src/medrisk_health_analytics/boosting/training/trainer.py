@@ -37,6 +37,7 @@ import pandas as pd
 
 from medrisk_health_analytics.boosting.config.schemas import (
     SplitStrategy,
+    TaskType,
     TrainingConfig,
     TrainingResult,
 )
@@ -88,20 +89,55 @@ def train_boosting_model(
 
     if importlib.util.find_spec("mlflow") is None:
         raise ImportError(
-            "mlflow is required for training. " "Install with: pip install medrisk-health-analytics[mlflow]"
+            "mlflow is required for training. "
+            "Install with: pip install medrisk-health-analytics[mlflow]"
         )
 
     # ── Resolve configuration ─────────────────────────────────────────────────
     if config is None:
         config = TrainingConfig(**config_kwargs)
 
+    required_columns = {config.target_column, *config.id_columns}
+    if config.temporal_column:
+        required_columns.add(config.temporal_column)
+    missing_columns = sorted(required_columns - set(df.columns))
+    if missing_columns:
+        raise ValueError(f"Training data is missing required columns: {missing_columns}")
+    if df.columns.duplicated().any():
+        duplicates = sorted(
+            {
+                str(column)
+                for column, duplicated in zip(df.columns, df.columns.duplicated(), strict=True)
+                if duplicated
+            }
+        )
+        raise ValueError(f"Training data contains duplicate columns: {duplicates}")
+    if df.empty:
+        raise ValueError("Training data must contain at least one row")
+    if config.split_strategy == SplitStrategy.TEMPORAL:
+        temporal_column = config.temporal_column
+        assert temporal_column is not None
+        df = df.sort_values(temporal_column, kind="stable").reset_index(drop=True)
+
+    excluded_columns = list(config.exclude_columns)
+    if config.temporal_column and config.temporal_column not in excluded_columns:
+        excluded_columns.append(config.temporal_column)
+
     # ── Auto-detect column types if not explicitly provided ──────────────────
     numeric_cols, categorical_cols = auto_detect_column_types(
         df,
-        exclude=config.exclude_columns,
+        exclude=excluded_columns,
         target=config.target_column,
         id_columns=config.id_columns,
     )
+
+    if config.feature_columns is not None:
+        missing_features = sorted(set(config.feature_columns) - set(df.columns))
+        if missing_features:
+            raise ValueError(f"Training data is missing configured features: {missing_features}")
+        selected = df[config.feature_columns]
+        numeric_cols = selected.select_dtypes(include=["number"]).columns.tolist()
+        categorical_cols = selected.select_dtypes(exclude=["number"]).columns.tolist()
 
     if config.numeric_columns:
         numeric_cols = config.numeric_columns
@@ -109,10 +145,23 @@ def train_boosting_model(
         categorical_cols = config.categorical_columns
 
     raw_feature_cols = numeric_cols + categorical_cols
+    if not raw_feature_cols:
+        raise ValueError("Training data does not contain any usable feature columns")
 
     # ── Build feature matrix and target ──────────────────────────────────────
     X = df[raw_feature_cols].copy()
     y = df[config.target_column].copy()
+    if y.isna().any():
+        raise ValueError(f"Target column '{config.target_column}' contains missing values")
+    class_count = y.nunique(dropna=True)
+    if class_count < 2:
+        raise ValueError(
+            f"Target column '{config.target_column}' must contain at least two classes"
+        )
+    if config.task_type == TaskType.BINARY_CLASSIFICATION and class_count != 2:
+        raise ValueError(
+            f"Binary classification requires exactly two target classes; found {class_count}"
+        )
 
     # ── Split dataset ─────────────────────────────────────────────────────────
     # In Databricks/Unity Catalog workflows, the real holdout test set should
@@ -176,6 +225,10 @@ def train_boosting_model(
         transformed_feature_names=transformed_feature_cols,
         metrics=metrics,
         df_sample=X_train.head(10),
+        training_dataset=pd.concat(
+            [X_train, y_train.rename(config.target_column)],
+            axis=1,
+        ),
     )
     result.config = config
 
@@ -234,6 +287,7 @@ def _log_to_mlflow(
     transformed_feature_names: list,
     metrics: dict,
     df_sample: Optional[pd.DataFrame] = None,
+    training_dataset: Optional[pd.DataFrame] = None,
 ) -> TrainingResult:
     """
     Serialize artifacts, open an MLflow run, and log everything.
@@ -252,14 +306,12 @@ def _log_to_mlflow(
     import mlflow.pyfunc
 
     from medrisk_health_analytics import __version__
-    from medrisk_health_analytics.boosting.pyfunc.boosting_pyfunc_model import (
-        get_boosting_pyfunc_class,
-    )
+    from medrisk_health_analytics.boosting.pyfunc.boosting_pyfunc_model import BoostingPyFuncModel
+    from medrisk_health_analytics.mlflow.signature import make_nullable_safe_sample
 
     mlflow.set_experiment(config.experiment_name)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-
         # ── Serialize model ───────────────────────────────────────────────
         model_ext = {"xgboost": ".json", "catboost": ".cbm", "lightgbm": ".txt"}.get(
             config.model_type.lower(), ".pkl"
@@ -310,6 +362,8 @@ def _log_to_mlflow(
             "model_type": config.model_type,
             "task_type": config.task_type.value,
             "medrisk_version": __version__,
+            "deployment_environment": config.environment or "unknown",
+            "training_data_source": config.training_data_source or "unspecified",
         }
 
         with mlflow.start_run(run_name=config.run_name, tags=run_tags) as run:
@@ -317,13 +371,23 @@ def _log_to_mlflow(
 
             # Log parameters
             safe_params = {
-                k: (str(v)[:250] if isinstance(v, (list, dict)) else v)
+                k: (str(v)[:250] if isinstance(v, list | dict) else v)
                 for k, v in config.to_mlflow_params().items()
             }
             mlflow.log_params(safe_params)
 
-            # Log metrics
-            mlflow.log_metrics(metrics)
+            if config.training_data_source:
+                mlflow.set_tag("mlflow.data.context", "training")
+            if training_dataset is not None:
+                dataset = mlflow.data.from_pandas(
+                    training_dataset,
+                    name="medrisk_training_features",
+                    targets=config.target_column,
+                )
+                mlflow.log_input(dataset, context="training")
+
+            # Keep the MLflow overview focused; detailed metrics remain in the result.
+            mlflow.log_metrics(_select_mlflow_metrics(metrics))
 
             # Log raw artifacts
             mlflow.log_artifact(config_path, artifact_path="pipeline_metadata")
@@ -336,26 +400,30 @@ def _log_to_mlflow(
             signature = None
             input_example = None
             if df_sample is not None:
-                try:
-                    from mlflow.models.signature import infer_signature
+                from mlflow.models.signature import infer_signature
 
-                    # Build a dummy prediction to infer output schema
-                    dummy_proba = model.predict_proba(
-                        pd.DataFrame(
-                            preprocessor.transform(df_sample), columns=transformed_feature_names
-                        )
+                signature_input = make_nullable_safe_sample(df_sample)
+                dummy_proba = model.predict_proba(
+                    pd.DataFrame(
+                        preprocessor.transform(signature_input),
+                        columns=transformed_feature_names,
                     )
-                    signature = infer_signature(df_sample, dummy_proba)
-                    input_example = df_sample
-                except Exception:
-                    pass
+                )
+                signature = infer_signature(signature_input, dummy_proba)
+                if config.log_input_example:
+                    input_example = signature_input
 
             # Log the full pyfunc model
-            PyfuncClass = get_boosting_pyfunc_class()
-            pyfunc_instance = PyfuncClass()
+            pyfunc_instance = BoostingPyFuncModel()
+
+            model_requirement = {
+                "xgboost": "xgboost",
+                "catboost": "catboost",
+                "lightgbm": "lightgbm",
+            }.get(config.model_type, "scikit-learn>=1.3")
 
             mlflow.pyfunc.log_model(
-                artifact_path=config.artifact_path,
+                name=config.artifact_path,
                 python_model=pyfunc_instance,
                 artifacts={
                     "model": model_path,
@@ -368,7 +436,7 @@ def _log_to_mlflow(
                 input_example=input_example,
                 pip_requirements=[
                     f"medrisk-health-analytics=={__version__}",
-                    f"{config.model_type}",
+                    model_requirement,
                     "pandas>=2.0",
                     "numpy>=1.24",
                     "scikit-learn>=1.3",
@@ -402,3 +470,16 @@ def _log_to_mlflow(
             "transformed_feature_names": f"{artifact_base_uri}/transformed_feature_names.json",
         },
     )
+
+
+def _select_mlflow_metrics(metrics: dict) -> dict:
+    """Return the small set of metrics used to compare training runs."""
+    tracked_names = (
+        "valid_roc_auc",
+        "valid_avg_precision",
+        "valid_recall",
+        "valid_specificity",
+        "valid_mcc",
+        "valid_brier_score",
+    )
+    return {name: metrics[name] for name in tracked_names if name in metrics}

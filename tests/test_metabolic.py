@@ -8,7 +8,8 @@ def test_metabolic_features_created(full_df, logger):
     df_out = fe.transform(full_df)
 
     expected_columns = {
-        "glycemic_load",
+        "tyg_index",
+        "tyg_bmi_index",
         "dyslipidemia_flag",
         "cardiometabolic_burden",
         "blood_pressure_ratio",
@@ -17,12 +18,11 @@ def test_metabolic_features_created(full_df, logger):
         assert col in df_out.columns, f"Missing column: {col}"
 
 
-def test_glycemic_load_value(full_df, logger):
+def test_tyg_index_is_finite_and_positive(full_df, logger):
     fe = MetabolicFeatureEngineer(logger=logger)
     df_out = fe.transform(full_df)
-    # glycemic_load = glucose_fasting * bmi
-    expected = full_df["glucose_fasting"] * full_df["bmi"]
-    assert (df_out["glycemic_load"] == expected).all()
+    assert df_out["tyg_index"].notna().all()
+    assert (df_out["tyg_index"] > 0).all()
 
 
 def test_dyslipidemia_flag_binary(full_df, logger):
@@ -48,8 +48,7 @@ def test_missing_columns_gracefully_skipped(minimal_df, logger):
     """Features requiring optional columns should be skipped, not crash."""
     fe = MetabolicFeatureEngineer(logger=logger)
     df_out = fe.transform(minimal_df)
-    # glycemic_load can be computed (glucose_fasting + bmi are in minimal_df)
-    assert "glycemic_load" in df_out.columns
+    assert "tyg_index" not in df_out.columns
     # dyslipidemia_flag requires triglycerides and hdl_cholesterol → absent
     assert "dyslipidemia_flag" not in df_out.columns
 

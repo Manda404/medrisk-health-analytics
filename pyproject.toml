@@ -1,12 +1,11 @@
-[tool.poetry]
+[project]
 name = "medrisk-health-analytics"
-version = "0.2.0"
+version = "0.4.1"
 description = "Professional medical, metabolic and lifestyle feature engineering for ML risk models"
-authors = ["Rostand Surel <s239150.eps@gmail.com>"]
+authors = [{ name = "Rostand Surel", email = "s239150.eps@gmail.com" }]
 readme = "README.md"
-license = "MIT"
-homepage = "https://github.com/Manda404/medrisk-health-analytics"
-repository = "https://github.com/Manda404/medrisk-health-analytics"
+license = { text = "MIT" }
+requires-python = ">=3.12,<3.15"
 keywords = [
     "healthcare",
     "feature-engineering",
@@ -23,58 +22,78 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
+dependencies = [
+    "pandas>=2.0,<3.0",
+    "numpy>=1.24,<3.0",
+    "loguru>=0.7.3,<1.0",
+    "pydantic>=2.9,<3.0",
+    "pydantic-settings>=2.0,<3.0",
+    "mlflow>=3.15,<4.0",
+]
+
+[project.optional-dependencies]
+mlflow = [
+    "mlflow>=3.15,<4.0",
+    "scikit-learn>=1.3",
+    "cryptography>=50.0,<51.0",
+    "gitpython>=3.1.59,<4.0",
+    "pillow>=12.3",
+    "pyarrow>=23.0.1,<26.0",
+    "pyasn1>=0.6.4,<0.7",
+    "sqlparse>=0.6,<1.0",
+    "starlette>=1.3.1,<2.0",
+]
+xgboost = ["xgboost>=1.7"]
+catboost = ["catboost>=1.2"]
+lightgbm = ["lightgbm>=4.0"]
+classical = ["scikit-learn>=1.3"]
+explainability = ["shap>=0.42", "matplotlib>=3.7"]
+boosting = [
+    "mlflow>=3.15,<4.0",
+    "xgboost>=1.7",
+    "catboost>=1.2",
+    "lightgbm>=4.0",
+    "scikit-learn>=1.3",
+    "shap>=0.42",
+    "matplotlib>=3.7",
+    "cryptography>=50.0,<51.0",
+    "gitpython>=3.1.59,<4.0",
+    "pillow>=12.3",
+    "pyarrow>=23.0.1,<26.0",
+    "pyasn1>=0.6.4,<0.7",
+    "sqlparse>=0.6,<1.0",
+    "starlette>=1.3.1,<2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Manda404/medrisk-health-analytics"
+Repository = "https://github.com/Manda404/medrisk-health-analytics"
+Issues = "https://github.com/Manda404/medrisk-health-analytics/issues"
+
+[tool.poetry]
 packages = [{ include = "medrisk_health_analytics", from = "src" }]
-
-[tool.poetry.dependencies]
-python = "^3.9"
-pandas = "^2.0"
-numpy = "^1.24"
-loguru = "^0.7.3"
-# Optional extras — install only what you need
-mlflow      = { version = ">=2.0,<3.0",  optional = true }
-xgboost     = { version = ">=1.7",  optional = true }
-catboost    = { version = ">=1.2",  optional = true }
-lightgbm    = { version = ">=4.0",  optional = true }
-scikit-learn = { version = ">=1.3", optional = true }
-shap        = { version = ">=0.42", optional = true }
-matplotlib  = { version = ">=3.7",  optional = true }
-
-[tool.poetry.extras]
-# pip install medrisk-health-analytics[mlflow]
-mlflow = ["mlflow", "scikit-learn"]
-# pip install medrisk-health-analytics[xgboost]
-xgboost = ["xgboost"]
-# pip install medrisk-health-analytics[catboost]
-catboost = ["catboost"]
-# pip install medrisk-health-analytics[lightgbm]
-lightgbm = ["lightgbm"]
-# pip install medrisk-health-analytics[explainability]  → SHAP analysis + Matplotlib plots
-explainability = ["shap", "matplotlib"]
-# pip install medrisk-health-analytics[boosting]  → all 3 boosting libs + mlflow + explainability
-boosting = ["mlflow", "xgboost", "catboost", "lightgbm", "scikit-learn", "shap", "matplotlib"]
-# pip install medrisk-health-analytics[all]  → everything
-all = ["mlflow", "xgboost", "catboost", "lightgbm", "scikit-learn", "shap", "matplotlib"]
+include = ["src/medrisk_health_analytics/py.typed"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4"
-pytest-cov = "^4.1"
-ruff = "^0.4"
-black = "^24.0"
-mypy = "^1.10"
-pandas-stubs = "^2.0"
-mlflow = ">=2.0,<3.0"
+pytest = ">=9.0.3,<10.0"
+pytest-cov = ">=7.0,<8.0"
+ruff = ">=0.13,<1.0"
+black = ">=26.3.1,<27.0"
+mypy = ">=1.18,<2.0"
+pandas-stubs = ">=2.3,<3.0"
+mlflow = ">=3.15,<4.0"
+pip-audit = ">=2.9,<3.0"
+pre-commit = ">=4.0,<5.0"
+setuptools = ">=83.0.0"
 
-# ---------------------------------------------------------------------------
-# Ruff linter configuration
-# ---------------------------------------------------------------------------
+# Linting and import sorting.
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -87,35 +106,40 @@ select = [
 ]
 ignore = [
     "E501",   # line-length handled by black
-    "UP006",  # keep typing.List/Dict style compatible with current codebase
-    "UP007",  # keep Optional/Union style for Python 3.9 readability
+    "UP006",  # retain the current public typing style during this release
+    "UP007",  # retain Optional/Union annotations during this release
     "UP035",  # keep typing imports until the package type style is migrated
+    "UP042",  # string enums are part of the current serialized public API
+    "UP045",  # Optional annotations are retained consistently in this release
 ]
 
-# ---------------------------------------------------------------------------
-# Black formatter configuration
-# ---------------------------------------------------------------------------
+# Formatting targets the minimum supported Python version.
 [tool.black]
 line-length = 100
-target-version = ["py39", "py310", "py311"]
+target-version = ["py312"]
 
-# ---------------------------------------------------------------------------
-# Mypy type checking configuration
-# ---------------------------------------------------------------------------
+# Static typing remains compatible with Databricks Runtime 18 (Python 3.12).
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
 follow_imports = "skip"
 
-# ---------------------------------------------------------------------------
-# Pytest configuration
-# ---------------------------------------------------------------------------
+# Tests and coverage.
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --strict-markers --strict-config"
+
+[tool.coverage.run]
+branch = true
+source = ["medrisk_health_analytics"]
+
+[tool.coverage.report]
+fail_under = 50
+show_missing = true
+skip_covered = true
 
 [build-system]
 requires = ["poetry-core"]

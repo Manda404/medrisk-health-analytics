@@ -45,15 +45,24 @@ from medrisk_health_analytics.boosting.data.dataset_splitter import (
     create_train_test_tables,
     split_dataframe,
 )
-from medrisk_health_analytics.boosting.inference.predictor import predict_with_registered_model
-from medrisk_health_analytics.boosting.models.base import BaseBoostingModel
-from medrisk_health_analytics.boosting.models.factory import BoostingModelFactory
-from medrisk_health_analytics.boosting.preprocessing.tabular_preprocessor import TabularPreprocessor
-from medrisk_health_analytics.boosting.pyfunc.boosting_pyfunc_model import BoostingPyFuncModel
 from medrisk_health_analytics.boosting.explainability.shap_explainer import (
     BoostingShapExplainer,
     ShapResult,
 )
+from medrisk_health_analytics.boosting.inference.predictor import predict_with_registered_model
+from medrisk_health_analytics.boosting.models import (
+    CatBoostModel,
+    GradientBoostingModel,
+    LightGBMModel,
+    LogisticRegressionModel,
+    ModelFactory,
+    RandomForestModel,
+    XGBoostModel,
+)
+from medrisk_health_analytics.boosting.models.base import BaseBoostingModel
+from medrisk_health_analytics.boosting.models.factory import BoostingModelFactory
+from medrisk_health_analytics.boosting.preprocessing.tabular_preprocessor import TabularPreprocessor
+from medrisk_health_analytics.boosting.pyfunc.boosting_pyfunc_model import BoostingPyFuncModel
 from medrisk_health_analytics.boosting.training.holdout import (
     HoldoutEvaluationResult,
     compute_binary_holdout_metrics,
@@ -61,6 +70,7 @@ from medrisk_health_analytics.boosting.training.holdout import (
 )
 from medrisk_health_analytics.boosting.training.trainer import train_boosting_model
 from medrisk_health_analytics.boosting.utils.spark_utils import to_pandas, to_spark
+from medrisk_health_analytics.evaluation import EvaluationReport, ModelEvaluator
 
 __all__ = [
     # Configuration
@@ -77,6 +87,13 @@ __all__ = [
     # Models
     "BaseBoostingModel",
     "BoostingModelFactory",
+    "ModelFactory",
+    "XGBoostModel",
+    "CatBoostModel",
+    "LightGBMModel",
+    "LogisticRegressionModel",
+    "RandomForestModel",
+    "GradientBoostingModel",
     # Pyfunc (core)
     "BoostingPyFuncModel",
     # Training & inference
@@ -93,4 +110,6 @@ __all__ = [
     # Explainability (SHAP)
     "BoostingShapExplainer",
     "ShapResult",
+    "ModelEvaluator",
+    "EvaluationReport",
 ]

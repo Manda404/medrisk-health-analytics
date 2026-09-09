@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from medrisk_health_analytics.utils.exceptions import InvalidConfigurationError
+
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
@@ -152,6 +154,12 @@ class TrainingConfig:
     log_input_example: bool = True
     """Whether to log a sample of input data as an MLflow artifact."""
 
+    training_data_source: Optional[str] = None
+    """Qualified Unity Catalog table or immutable dataset URI used for training."""
+
+    environment: Optional[str] = None
+    """Deployment environment recorded in MLflow tags."""
+
     # ── Inference / output ────────────────────────────────────────────────
     priority_high_threshold: float = 0.8
     """Probability threshold above which priority = 'HIGH'."""
@@ -168,6 +176,98 @@ class TrainingConfig:
         ]
     )
     """Columns included in the prediction output (id_columns are always added)."""
+
+    def __post_init__(self) -> None:
+        """Reject invalid configurations before a training run starts."""
+        if isinstance(self.split_strategy, str):
+            try:
+                self.split_strategy = SplitStrategy(self.split_strategy)
+            except ValueError as exc:
+                raise InvalidConfigurationError(
+                    "split_strategy", self.split_strategy, [item.value for item in SplitStrategy]
+                ) from exc
+        if isinstance(self.task_type, str):
+            try:
+                self.task_type = TaskType(self.task_type)
+            except ValueError as exc:
+                raise InvalidConfigurationError(
+                    "task_type", self.task_type, [item.value for item in TaskType]
+                ) from exc
+
+        for name, value in (
+            ("test_size", self.test_size),
+            ("validation_size", self.validation_size),
+        ):
+            if not 0 < value < 1:
+                raise InvalidConfigurationError(name, value, "a float strictly between 0 and 1")
+        if self.use_internal_test_split and self.test_size + self.validation_size >= 1:
+            raise InvalidConfigurationError(
+                "test_size + validation_size",
+                self.test_size + self.validation_size,
+                "a value strictly below 1",
+            )
+        if self.split_strategy == SplitStrategy.TEMPORAL and not self.temporal_column:
+            raise InvalidConfigurationError(
+                "temporal_column", self.temporal_column, "a column name for temporal splitting"
+            )
+        supported_models = {
+            "xgboost",
+            "catboost",
+            "lightgbm",
+            "logistic_regression",
+            "random_forest",
+            "gradient_boosting",
+        }
+        if self.model_type not in supported_models:
+            raise InvalidConfigurationError("model_type", self.model_type, sorted(supported_models))
+        if self.numeric_impute_strategy not in {"mean", "median", "constant"}:
+            raise InvalidConfigurationError(
+                "numeric_impute_strategy",
+                self.numeric_impute_strategy,
+                ["mean", "median", "constant"],
+            )
+        if self.categorical_impute_strategy not in {"most_frequent", "constant"}:
+            raise InvalidConfigurationError(
+                "categorical_impute_strategy",
+                self.categorical_impute_strategy,
+                ["most_frequent", "constant"],
+            )
+        if self.categorical_encoding not in {"ordinal", "onehot"}:
+            raise InvalidConfigurationError(
+                "categorical_encoding", self.categorical_encoding, ["ordinal", "onehot"]
+            )
+        if not 0 <= self.priority_medium_threshold <= self.priority_high_threshold <= 1:
+            raise InvalidConfigurationError(
+                "priority thresholds",
+                (self.priority_medium_threshold, self.priority_high_threshold),
+                "0 <= medium <= high <= 1",
+            )
+
+        feature_sets = [
+            set(self.id_columns),
+            set(self.numeric_columns or []),
+            set(self.categorical_columns or []),
+            set(self.feature_columns or []),
+        ]
+        if set(self.numeric_columns or []) & set(self.categorical_columns or []):
+            raise InvalidConfigurationError(
+                "numeric_columns/categorical_columns",
+                sorted(set(self.numeric_columns or []) & set(self.categorical_columns or [])),
+                "disjoint column lists",
+            )
+        if any(self.target_column in columns for columns in feature_sets):
+            raise InvalidConfigurationError(
+                "target_column", self.target_column, "a target excluded from all feature lists"
+            )
+        if self.feature_columns is not None:
+            typed_columns = set(self.numeric_columns or []) | set(self.categorical_columns or [])
+            outside_selection = typed_columns - set(self.feature_columns)
+            if outside_selection:
+                raise InvalidConfigurationError(
+                    "numeric_columns/categorical_columns",
+                    sorted(outside_selection),
+                    "columns contained in feature_columns",
+                )
 
     def to_mlflow_params(self) -> Dict[str, Any]:
         """
@@ -237,6 +337,16 @@ class InferenceConfig:
 
     batch_size: Optional[int] = None
     """Process input in batches of this size. None = load all at once."""
+
+    def __post_init__(self) -> None:
+        if not self.model_uri:
+            raise InvalidConfigurationError("model_uri", self.model_uri, "a non-empty MLflow URI")
+        if self.output_mode not in {"overwrite", "append", "merge"}:
+            raise InvalidConfigurationError(
+                "output_mode", self.output_mode, ["overwrite", "append", "merge"]
+            )
+        if self.batch_size is not None and self.batch_size <= 0:
+            raise InvalidConfigurationError("batch_size", self.batch_size, "a positive integer")
 
 
 # ---------------------------------------------------------------------------

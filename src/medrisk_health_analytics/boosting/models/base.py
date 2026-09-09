@@ -140,7 +140,7 @@ class BaseBoostingModel(ABC):
         """Raise RuntimeError if predict is called before fit."""
         if not self._is_fitted:
             raise RuntimeError(
-                f"{self.__class__.__name__} is not fitted yet. " "Call fit() before predict()."
+                f"{self.__class__.__name__} is not fitted yet. Call fit() before predict()."
             )
 
     @property

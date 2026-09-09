@@ -45,12 +45,15 @@ class MetabolicFeatureEngineer:
         self.logger.info("Creating advanced metabolic features...")
 
         # --------------------------------------------------
-        # 1) Glycemic load proxy (glucose × BMI)
+        # 1) Triglyceride-glucose index: complementary insulin-resistance proxy
         # --------------------------------------------------
-        if {"glucose_fasting", "bmi"}.issubset(df.columns):
-            df["glycemic_load"] = df["glucose_fasting"] * df["bmi"]
+        if {"glucose_fasting", "triglycerides"}.issubset(df.columns):
+            product = df["glucose_fasting"] * df["triglycerides"]
+            df["tyg_index"] = np.log(product.where(product > 0) / 2)
+            if "bmi" in df.columns:
+                df["tyg_bmi_index"] = df["tyg_index"] * df["bmi"]
         else:
-            self.logger.warning("Missing glucose_fasting or bmi — glycemic_load not created.")
+            self.logger.warning("Missing glucose or triglycerides — TyG features not created.")
 
         # --------------------------------------------------
         # 2) Dyslipidemia flag (NCEP-ATP III inspired)
@@ -95,6 +98,14 @@ class MetabolicFeatureEngineer:
             df["blood_pressure_ratio"] = df["systolic_bp"] / df["diastolic_bp"].replace(0, np.nan)
         else:
             self.logger.warning("Missing BP columns — blood_pressure_ratio not created.")
+
+        history_columns = {
+            "family_history_diabetes",
+            "hypertension_history",
+            "cardiovascular_history",
+        }
+        if history_columns.issubset(df.columns):
+            df["medical_history_burden"] = df[list(sorted(history_columns))].sum(axis=1)
 
         self.logger.info("Advanced metabolic features created successfully.")
         return df

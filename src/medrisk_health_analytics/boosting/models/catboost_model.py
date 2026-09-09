@@ -142,7 +142,7 @@ class CatBoostModel(BaseBoostingModel):
         path: str,
         task_type: str = "binary_classification",
         cat_features: Optional[List[str]] = None,
-    ) -> "CatBoostModel":
+    ) -> CatBoostModel:
         """
         Deserialize a model from disk.
 

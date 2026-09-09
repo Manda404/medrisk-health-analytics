@@ -5,7 +5,7 @@ from medrisk_health_analytics.logging import get_logger
 LEAKAGE_COLUMNS = {
     "diabetes_stage",
     "diabetes_risk_score",
-    # "diagnosed_diabetes",  # target → jamais dans X
+    "diagnosed_diabetes",
 }
 
 

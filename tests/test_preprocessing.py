@@ -2,6 +2,7 @@
 
 import pandas as pd
 import pytest
+
 from medrisk_health_analytics.preprocessing import clean_categorical_variables, drop_leakage_columns
 
 
@@ -17,6 +18,7 @@ def raw_df():
             "bmi": [27, 32],
             "diabetes_stage": ["Stage 1", "Stage 2"],
             "diabetes_risk_score": [0.7, 0.9],
+            "diagnosed_diabetes": [0, 1],
         }
     )
 
@@ -62,6 +64,7 @@ class TestLeakageRemoval:
         df_out = drop_leakage_columns(raw_df, logger=logger)
         assert "diabetes_stage" not in df_out.columns
         assert "diabetes_risk_score" not in df_out.columns
+        assert "diagnosed_diabetes" not in df_out.columns
 
     def test_non_leakage_columns_preserved(self, raw_df, logger):
         df_out = drop_leakage_columns(raw_df, logger=logger)

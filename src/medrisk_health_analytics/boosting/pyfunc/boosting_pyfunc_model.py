@@ -38,14 +38,15 @@ from __future__ import annotations
 import json
 import os
 import pickle
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
+import mlflow.pyfunc
 import numpy as np
 import pandas as pd
 
 
-class BoostingPyFuncModel:
+class BoostingPyFuncModel(mlflow.pyfunc.PythonModel):
     """
     MLflow PythonModel wrapper for XGBoost / CatBoost / LightGBM.
 
@@ -172,8 +173,7 @@ class BoostingPyFuncModel:
         missing = [c for c in self.feature_names if c not in df.columns]
         if missing:
             raise KeyError(
-                f"Missing feature columns in model_input: {missing}. "
-                f"Expected: {self.feature_names}"
+                f"Missing feature columns in model_input: {missing}. Expected: {self.feature_names}"
             )
 
         X = df[self.feature_names]
@@ -209,7 +209,7 @@ class BoostingPyFuncModel:
         output = id_data.reset_index(drop=True).copy()
         output["probability"] = np.round(probabilities, 6)
         output["priority"] = priority
-        output["prediction_date"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        output["prediction_date"] = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
         output["model_version"] = self._model_version
 
         return output
@@ -301,28 +301,5 @@ class BoostingPyFuncModel:
 
 
 def get_boosting_pyfunc_class():
-    """
-    Return BoostingPyFuncModel with mlflow.pyfunc.PythonModel as base,
-    or the plain class if mlflow is not installed.
-
-    This lazy pattern keeps mlflow optional for users who only use
-    the feature engineering pipeline without MLflow.
-    """
-    try:
-        import mlflow.pyfunc
-
-        class _BoostingPyFuncModelWithBase(
-            BoostingPyFuncModel,
-            mlflow.pyfunc.PythonModel,
-        ):
-            """
-            Production class: BoostingPyFuncModel registered as a
-            first-class mlflow.pyfunc.PythonModel.
-            """
-
-            pass
-
-        return _BoostingPyFuncModelWithBase
-
-    except ImportError:
-        return BoostingPyFuncModel
+    """Return the explicit PythonModel subclass for API compatibility."""
+    return BoostingPyFuncModel

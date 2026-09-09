@@ -1,0 +1,47 @@
+resources:
+  jobs:
+    medrisk_classification_pipeline:
+      name: ${var.project_name}-${var.environment}-pipeline
+      description: Validate data, train and promote a candidate, infer, and monitor drift.
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tags:
+        project: ${var.project_name}
+        environment: ${var.environment}
+        git_commit: ${var.git_commit_sha}
+
+      environments:
+        - environment_key: medrisk_environment
+          spec:
+            environment_version: "5"
+            dependencies:
+              - ../dist/*.whl
+              - xgboost>=3.0,<4.0
+
+      tasks:
+        - task_key: prepare_data
+          environment_key: medrisk_environment
+          notebook_task:
+            notebook_path: ../notebooks/01_prepare_data.py
+
+        - task_key: train_validate_promote
+          depends_on:
+            - task_key: prepare_data
+          environment_key: medrisk_environment
+          notebook_task:
+            notebook_path: ../notebooks/02_train_validate_promote.py
+
+        - task_key: batch_inference
+          depends_on:
+            - task_key: train_validate_promote
+          environment_key: medrisk_environment
+          notebook_task:
+            notebook_path: ../notebooks/03_batch_inference.py
+
+        - task_key: monitor_data_drift
+          depends_on:
+            - task_key: batch_inference
+          environment_key: medrisk_environment
+          notebook_task:
+            notebook_path: ../notebooks/04_monitor_data_drift.py

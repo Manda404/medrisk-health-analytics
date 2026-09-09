@@ -1,3 +1,6 @@
+from typing import Sequence
+
+import pandas as pd
 from pandas import DataFrame
 
 from medrisk_health_analytics.features import (
@@ -84,7 +87,13 @@ class FeatureEngineeringPipeline:
             validate_schema=state.get("validate_schema", True),
         )
 
-    def transform(self, df: DataFrame) -> DataFrame:
+    def transform(
+        self,
+        df: DataFrame,
+        *,
+        target_column: str | None = None,
+        id_columns: Sequence[str] = (),
+    ) -> DataFrame:
         """
         Apply the full feature engineering pipeline.
 
@@ -92,17 +101,29 @@ class FeatureEngineeringPipeline:
         ----------
         df : DataFrame
             Raw input dataset.
+        target_column : str or None
+            Target preserved in the output and excluded from transformations.
+        id_columns : sequence of str
+            Identifier columns preserved without using them as features.
 
         Returns
         -------
         DataFrame
             Fully enriched dataset.
         """
+        protected_columns = list(id_columns)
+        if target_column is not None:
+            protected_columns.append(target_column)
+        missing = sorted(set(protected_columns) - set(df.columns))
+        if missing:
+            raise ValueError(f"Protected columns are missing: {missing}")
+
+        feature_input = df.drop(columns=protected_columns)
         self.logger.info("Starting feature engineering pipeline...")
-        df_enriched = df.copy(deep=True)
+        df_enriched = feature_input.copy(deep=True)
 
         if self.validate_schema:
-            self.schema_validator.validate(df)
+            self.schema_validator.validate(feature_input)
         # --------------------------------------------------
         # Step 0: Prevent data leakage
         # --------------------------------------------------
@@ -153,6 +174,10 @@ class FeatureEngineeringPipeline:
         ).columns.tolist()
         for column in category_columns:
             df_enriched[column] = df_enriched[column].astype(object)
+
+        if protected_columns:
+            preserved = df[protected_columns].reset_index(drop=True)
+            df_enriched = pd.concat([preserved, df_enriched.reset_index(drop=True)], axis=1)
 
         self.logger.info(f"Pipeline completed successfully — total columns: {df_enriched.shape[1]}")
         return df_enriched

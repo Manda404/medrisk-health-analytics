@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import pytest
+from mlflow.pyfunc import PythonModel
+
 from medrisk_health_analytics.boosting.models.factory import BoostingModelFactory
 from medrisk_health_analytics.boosting.pyfunc.boosting_pyfunc_model import BoostingPyFuncModel
 
@@ -21,6 +23,10 @@ class DummyClassifier:
     def predict_proba(self, X):
         assert X.columns.tolist() == ["age", "gender_F", "gender_M"]
         return np.array([[0.1, 0.9], [0.8, 0.2]])
+
+
+def test_boosting_pyfunc_is_mlflow_python_model():
+    assert issubclass(BoostingPyFuncModel, PythonModel)
 
 
 def test_boosting_pyfunc_uses_transformed_feature_names_for_classification():

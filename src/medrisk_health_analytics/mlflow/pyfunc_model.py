@@ -34,15 +34,13 @@ from __future__ import annotations
 import json
 import os
 import pickle
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
+import mlflow.pyfunc
 import pandas as pd
 
-if TYPE_CHECKING:
-    pass
 
-
-class MedRiskPyFuncModel:
+class MedRiskPyFuncModel(mlflow.pyfunc.PythonModel):
     """
     MLflow PythonModel wrapper for the medrisk-health-analytics pipeline.
 
@@ -143,22 +141,5 @@ class MedRiskPyFuncModel:
 
 
 def _get_pyfunc_class():
-    """
-    Lazily import mlflow.pyfunc.PythonModel to keep mlflow optional.
-    Returns the MedRiskPyFuncModel class with PythonModel as base,
-    or a plain version if mlflow is not installed.
-    """
-    try:
-        import mlflow.pyfunc
-
-        class _MedRiskPyFuncModelWithBase(MedRiskPyFuncModel, mlflow.pyfunc.PythonModel):
-            """
-            Production class: MedRiskPyFuncModel with mlflow.pyfunc.PythonModel
-            as base class. Used when mlflow is available.
-            """
-
-            pass
-
-        return _MedRiskPyFuncModelWithBase
-    except ImportError:
-        return MedRiskPyFuncModel
+    """Return the explicit PythonModel subclass for API compatibility."""
+    return MedRiskPyFuncModel

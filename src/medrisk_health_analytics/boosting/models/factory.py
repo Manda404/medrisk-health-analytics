@@ -28,16 +28,31 @@ def _get_registry() -> Dict[str, Type[Any]]:
     """Build and return the model registry with lazy imports."""
     from medrisk_health_analytics.boosting.models.catboost_model import CatBoostModel
     from medrisk_health_analytics.boosting.models.lightgbm_model import LightGBMModel
+    from medrisk_health_analytics.boosting.models.sklearn_models import (
+        GradientBoostingModel,
+        LogisticRegressionModel,
+        RandomForestModel,
+    )
     from medrisk_health_analytics.boosting.models.xgboost_model import XGBoostModel
 
     return {
         "xgboost": XGBoostModel,
         "catboost": CatBoostModel,
         "lightgbm": LightGBMModel,
+        "logistic_regression": LogisticRegressionModel,
+        "random_forest": RandomForestModel,
+        "gradient_boosting": GradientBoostingModel,
     }
 
 
-SUPPORTED_MODELS = ["xgboost", "catboost", "lightgbm"]
+SUPPORTED_MODELS = [
+    "xgboost",
+    "catboost",
+    "lightgbm",
+    "logistic_regression",
+    "random_forest",
+    "gradient_boosting",
+]
 SUPPORTED_TASK_TYPES = ["binary_classification", "multiclass_classification"]
 
 
@@ -92,13 +107,12 @@ class BoostingModelFactory:
 
         if model_type_lower not in registry:
             raise ValueError(
-                f"Unknown model_type '{model_type}'. "
-                f"Supported models: {sorted(registry.keys())}"
+                f"Unknown model_type '{model_type}'. Supported models: {sorted(registry.keys())}"
             )
 
         if task_type not in SUPPORTED_TASK_TYPES:
             raise ValueError(
-                f"Unsupported task_type '{task_type}'. " f"Supported values: {SUPPORTED_TASK_TYPES}"
+                f"Unsupported task_type '{task_type}'. Supported values: {SUPPORTED_TASK_TYPES}"
             )
 
         model_class = registry[model_type_lower]

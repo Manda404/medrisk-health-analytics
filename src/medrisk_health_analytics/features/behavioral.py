@@ -49,6 +49,10 @@ class BehavioralFeatureEngineer:
             df["physical_activity_adequate"] = (
                 df["physical_activity_minutes_per_week"] / WHO_ACTIVITY_MIN_WEEKLY
             ).clip(upper=3)
+            df["activity_deficit_ratio"] = (
+                (WHO_ACTIVITY_MIN_WEEKLY - df["physical_activity_minutes_per_week"])
+                / WHO_ACTIVITY_MIN_WEEKLY
+            ).clip(lower=0, upper=1)
         else:
             self.logger.warning(
                 "Column 'physical_activity_minutes_per_week' missing — "
@@ -62,6 +66,7 @@ class BehavioralFeatureEngineer:
             df["screen_sleep_imbalance"] = (
                 df["screen_time_hours_per_day"] / df["sleep_hours_per_day"]
             ).clip(upper=5)
+            df["sleep_deviation_hours"] = (df["sleep_hours_per_day"] - 8).abs()
         else:
             self.logger.warning(
                 "Screen time or sleep columns missing — screen_sleep_imbalance not created."

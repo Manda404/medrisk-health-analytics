@@ -37,8 +37,11 @@ def compute_binary_holdout_metrics(
     from sklearn.metrics import (
         accuracy_score,
         average_precision_score,
+        balanced_accuracy_score,
+        brier_score_loss,
         confusion_matrix,
         f1_score,
+        matthews_corrcoef,
         precision_score,
         recall_score,
         roc_auc_score,
@@ -47,14 +50,19 @@ def compute_binary_holdout_metrics(
     y_pred = (pd.Series(y_score) >= threshold).astype(int)
     metrics: Dict[str, float] = {
         f"{prefix}_accuracy": round(accuracy_score(y_true, y_pred), 6),
+        f"{prefix}_balanced_accuracy": round(balanced_accuracy_score(y_true, y_pred), 6),
         f"{prefix}_precision": round(precision_score(y_true, y_pred, zero_division=0), 6),
         f"{prefix}_recall": round(recall_score(y_true, y_pred, zero_division=0), 6),
         f"{prefix}_f1": round(f1_score(y_true, y_pred, zero_division=0), 6),
         f"{prefix}_roc_auc": round(roc_auc_score(y_true, y_score), 6),
         f"{prefix}_avg_precision": round(average_precision_score(y_true, y_score), 6),
+        f"{prefix}_mcc": round(matthews_corrcoef(y_true, y_pred), 6),
+        f"{prefix}_brier_score": round(brier_score_loss(y_true, y_score), 6),
     }
 
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    metrics[f"{prefix}_specificity"] = round(tn / (tn + fp), 6) if tn + fp else 0.0
+    metrics[f"{prefix}_npv"] = round(tn / (tn + fn), 6) if tn + fn else 0.0
     metrics[f"{prefix}_tn"] = int(tn)
     metrics[f"{prefix}_fp"] = int(fp)
     metrics[f"{prefix}_fn"] = int(fn)
@@ -91,6 +99,7 @@ def evaluate_registered_model_on_holdout(
         to_pandas,
         write_to_delta,
     )
+    from medrisk_health_analytics.mlflow.signature import make_nullable_safe_sample
 
     if input_df is None and input_table is None:
         raise ValueError("Provide either input_df or input_table.")
@@ -109,7 +118,7 @@ def evaluate_registered_model_on_holdout(
     X = df.drop(columns=[target_column])
 
     model = mlflow.pyfunc.load_model(model_uri)
-    predictions = model.predict(X)
+    predictions = model.predict(make_nullable_safe_sample(X))
     if "probability" not in predictions.columns:
         raise ValueError("Expected model output with a 'probability' column.")
 

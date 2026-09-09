@@ -50,13 +50,16 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 import pandas as pd
 
 from medrisk_health_analytics.boosting.models.base import BaseBoostingModel
 from medrisk_health_analytics.logging.default_logger import get_logger
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
 
 _logger = get_logger("medrisk-shap")
 
@@ -103,13 +106,11 @@ class ShapResult:
 
     def __post_init__(self) -> None:
         if self.mean_abs_shap.empty:
-            self.mean_abs_shap = (
-                pd.Series(
-                    np.abs(self.shap_values).mean(axis=0),
-                    index=self.feature_names,
-                    name="mean_abs_shap",
-                ).sort_values(ascending=False)
-            )
+            self.mean_abs_shap = pd.Series(
+                np.abs(self.shap_values).mean(axis=0),
+                index=self.feature_names,
+                name="mean_abs_shap",
+            ).sort_values(ascending=False)
 
     def top_features(self, n: int = 10) -> pd.Series:
         """Return the top-n features by mean |SHAP| value."""
@@ -158,11 +159,7 @@ class BoostingShapExplainer:
             )
 
         self._model = model
-        self._feature_names: List[str] = (
-            feature_names
-            or getattr(model, "_feature_names", [])
-            or []
-        )
+        self._feature_names: List[str] = feature_names or getattr(model, "_feature_names", []) or []
         self._explainer = None
         self._result: Optional[ShapResult] = None
 
@@ -170,7 +167,7 @@ class BoostingShapExplainer:
     # Fitting — build the TreeExplainer and compute SHAP values
     # ------------------------------------------------------------------
 
-    def fit(self, X: pd.DataFrame) -> "BoostingShapExplainer":
+    def fit(self, X: pd.DataFrame) -> BoostingShapExplainer:
         """
         Build the SHAP TreeExplainer and compute SHAP values for X.
 
@@ -219,9 +216,9 @@ class BoostingShapExplainer:
             self._explainer = shap.TreeExplainer(raw_model)
         except Exception as exc:
             raise RuntimeError(
-                f"Could not build a SHAP TreeExplainer for "
-                f"{type(raw_model).__name__}. Error: {exc}"
+                f"Could not build a SHAP TreeExplainer for {type(raw_model).__name__}. Error: {exc}"
             ) from exc
+        assert self._explainer is not None
 
         _logger.info(f"Computing SHAP values on {len(X_clean):,} samples…")
 
@@ -247,7 +244,7 @@ class BoostingShapExplainer:
 
         # Scalar or array expected value
         ev = self._explainer.expected_value
-        expected_value = float(ev[1] if isinstance(ev, (list, np.ndarray)) else ev)
+        expected_value = float(ev[1] if isinstance(ev, list | np.ndarray) else ev)
 
         self._result = ShapResult(
             shap_values=shap_values,
@@ -314,7 +311,7 @@ class BoostingShapExplainer:
         figsize: tuple = (10, 7),
         alpha: float = 0.6,
         color_bar: bool = True,
-    ) -> "matplotlib.figure.Figure":
+    ) -> Figure:
         """
         Beeswarm summary plot: global importance + direction per feature.
 
@@ -352,12 +349,12 @@ class BoostingShapExplainer:
         >>> display(fig)          # Databricks
         >>> fig.savefig("shap_summary.png", dpi=150, bbox_inches="tight")
         """
-        import matplotlib
         import matplotlib.pyplot as plt
         import shap
 
         self._check_fitted()
-        result = self._result  # type: ignore[union-attr]
+        result = self._result
+        assert result is not None
 
         fig, ax = plt.subplots(figsize=figsize)
         plt.sca(ax)
@@ -388,7 +385,7 @@ class BoostingShapExplainer:
         title: str = "SHAP Feature Importance — Mean |SHAP|",
         figsize: tuple = (9, 6),
         color: str = "#2196F3",
-    ) -> "matplotlib.figure.Figure":
+    ) -> Figure:
         """
         Horizontal bar chart ranking features by mean absolute SHAP value.
 
@@ -420,17 +417,19 @@ class BoostingShapExplainer:
         import matplotlib.pyplot as plt
 
         self._check_fitted()
-        result = self._result  # type: ignore[union-attr]
+        result = self._result
+        assert result is not None
 
         top = result.mean_abs_shap.head(max_display).iloc[::-1]  # reverse for horizontal bar
+        max_value = float(np.max(top.to_numpy(dtype=float)))
 
         fig, ax = plt.subplots(figsize=figsize)
         bars = ax.barh(top.index, top.values, color=color, edgecolor="white", linewidth=0.5)
 
         # Add value labels at the end of each bar
-        for bar, val in zip(bars, top.values):
+        for bar, val in zip(bars, top.values, strict=False):
             ax.text(
-                bar.get_width() + top.values.max() * 0.01,
+                bar.get_width() + max_value * 0.01,
                 bar.get_y() + bar.get_height() / 2,
                 f"{val:.4f}",
                 va="center",
@@ -459,7 +458,7 @@ class BoostingShapExplainer:
         max_display: int = 15,
         title: Optional[str] = None,
         figsize: tuple = (10, 6),
-    ) -> "matplotlib.figure.Figure":
+    ) -> Figure:
         """
         Waterfall decomposition for a single patient prediction.
 
@@ -499,17 +498,18 @@ class BoostingShapExplainer:
         >>> fig = explainer.plot_waterfall(sample_idx=42, max_display=12)
         >>> display(fig)
         """
-        import matplotlib.pyplot as plt
         import matplotlib.patches as mpatches
+        import matplotlib.pyplot as plt
 
         self._check_fitted()
-        result = self._result  # type: ignore[union-attr]
+        result = self._result
+        assert result is not None
         n_samples = result.shap_values.shape[0]
 
         if sample_idx < 0 or sample_idx >= n_samples:
             raise IndexError(
                 f"sample_idx={sample_idx} is out of range. "
-                f"The explainer was fitted on {n_samples} samples (indices 0–{n_samples-1})."
+                f"The explainer was fitted on {n_samples} samples (indices 0–{n_samples - 1})."
             )
 
         shap_vals = result.shap_values[sample_idx]
@@ -538,7 +538,7 @@ class BoostingShapExplainer:
             shap_plot.append(other_shap)
 
         # Reverse so most important is at the top
-        for name, sv, fv in zip(top_names[::-1], top_shap[::-1], top_fvals[::-1]):
+        for name, sv, fv in zip(top_names[::-1], top_shap[::-1], top_fvals[::-1], strict=False):
             # Format feature value nicely
             if isinstance(fv, float):
                 label = f"{name} = {fv:.3g}"
@@ -563,7 +563,7 @@ class BoostingShapExplainer:
         fig, ax = plt.subplots(figsize=figsize)
         y_positions = np.arange(n_bars)
 
-        for i, (sv, col) in enumerate(zip(shap_arr, colors)):
+        for i, (sv, col) in enumerate(zip(shap_arr, colors, strict=False)):
             left = min(cumulative[i], cumulative[i + 1])
             width = abs(sv)
             ax.barh(y_positions[i], width, left=left, color=col, edgecolor="white", linewidth=0.5)
@@ -571,16 +571,33 @@ class BoostingShapExplainer:
             x_text = cumulative[i + 1] + (0.003 if sv >= 0 else -0.003)
             ha = "left" if sv >= 0 else "right"
             sign = "+" if sv >= 0 else ""
-            ax.text(x_text, y_positions[i], f"{sign}{sv:.4f}",
-                    va="center", ha=ha, fontsize=8, color="#333333")
+            ax.text(
+                x_text,
+                y_positions[i],
+                f"{sign}{sv:.4f}",
+                va="center",
+                ha=ha,
+                fontsize=8,
+                color="#333333",
+            )
 
         # Base value line
-        ax.axvline(x=base_value, color="#9E9E9E", linewidth=1.2,
-                   linestyle="--", label=f"Base value = {base_value:.4f}")
+        ax.axvline(
+            x=base_value,
+            color="#9E9E9E",
+            linewidth=1.2,
+            linestyle="--",
+            label=f"Base value = {base_value:.4f}",
+        )
 
         # Final value line
-        ax.axvline(x=final_value, color="#212121", linewidth=1.5,
-                   linestyle="-", label=f"f(x) = {final_value:.4f}")
+        ax.axvline(
+            x=final_value,
+            color="#212121",
+            linewidth=1.5,
+            linestyle="-",
+            label=f"f(x) = {final_value:.4f}",
+        )
 
         ax.set_yticks(y_positions)
         ax.set_yticklabels(names_plot, fontsize=8.5)

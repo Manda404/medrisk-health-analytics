@@ -143,7 +143,8 @@ def log_pipeline(
     except ImportError as exc:
         raise ImportError(_MLFLOW_NOT_INSTALLED_MSG) from exc
 
-    from medrisk_health_analytics.mlflow.pyfunc_model import _get_pyfunc_class
+    from medrisk_health_analytics.mlflow.pyfunc_model import MedRiskPyFuncModel
+    from medrisk_health_analytics.mlflow.signature import make_nullable_safe_sample
 
     # -- Build pipeline configuration dict --------------------------------
     config = {
@@ -192,9 +193,12 @@ def log_pipeline(
             try:
                 from mlflow.models.signature import infer_signature
 
-                df_out_sample = pipeline.transform(df_sample.copy())
-                signature = infer_signature(df_sample, df_out_sample)
-                input_example = df_sample.head(3)
+                signature_input = make_nullable_safe_sample(df_sample)
+                df_out_sample = make_nullable_safe_sample(
+                    pipeline.transform(signature_input.copy())
+                )
+                signature = infer_signature(signature_input, df_out_sample)
+                input_example = signature_input.head(3)
             except Exception:
                 pass  # Signature inference is best-effort
 
@@ -218,12 +222,11 @@ def log_pipeline(
             mlflow.log_artifact(feature_names_path, artifact_path="pipeline_metadata")
 
             # Get the correct pyfunc class (with mlflow.pyfunc.PythonModel base)
-            PyfuncClass = _get_pyfunc_class()
-            pyfunc_instance = PyfuncClass()
+            pyfunc_instance = MedRiskPyFuncModel()
 
             # Log the model as mlflow.pyfunc
             mlflow.pyfunc.log_model(
-                artifact_path=artifact_path,
+                name=artifact_path,
                 python_model=pyfunc_instance,
                 artifacts={
                     "pipeline": pipeline_path,

@@ -21,7 +21,7 @@
 #   databricks bundle deploy  -t dev
 #   databricks bundle run medrisk_classification_pipeline -t dev
 #
-# BEFORE DEPLOYING: set catalog and schema per target below (search "??").
+# The job uses Databricks serverless compute; no cluster is provisioned here.
 # =============================================================
 
 
@@ -126,7 +126,7 @@ variables:
   # ── Data & model config ──────────────────────────────────────────────
   source_path:
     description: CSV path or Unity Catalog volume path for the patient dataset.
-    default: "/Volumes/workspace/mlops_lab/datasets/health/patient.csv"
+    default: "/Volumes/workspace/mlops_dev/medrisk_data/patient.csv"
 
   target_column:
     description: Binary classification target column name in the dataset.
@@ -149,8 +149,7 @@ targets:
   #
   # - Runs under the current user's personal workspace path
   # - All jobs are PAUSED by default
-  # - Databricks adds the username prefix to resource names
-  #   automatically (mode: development)
+  # - Databricks prefixes bundle-managed resources for user isolation
   # -----------------------------------------------------------
   dev:
     default: true
@@ -158,12 +157,14 @@ targets:
 
     workspace:
       host: https://dbc-36a650e5-7029.cloud.databricks.com
+      profile: mlops-databricks
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.target}/${bundle.name}
 
     variables:
       environment: "dev"
       catalog: "workspace"           # ← set your dev catalog name
       schema: "mlops_dev"            # ← set your dev schema name
+      source_path: "/Volumes/workspace/mlops_dev/medrisk_data/patient.csv"
       mlflow_experiment_name: "/Users/${workspace.current_user.userName}/medrisk-health-analytics"
       schedule_pause_status: "PAUSED"
 
@@ -183,12 +184,14 @@ targets:
 
     workspace:
       host: https://dbc-36a650e5-7029.cloud.databricks.com
+      profile: mlops-databricks
       root_path: /Shared/.bundle/${bundle.target}/${bundle.name}
 
     variables:
       environment: "stg"
       catalog: "workspace"           # ← set your staging catalog name
       schema: "mlops_stg"            # ← set your staging schema name
+      source_path: "/Volumes/workspace/mlops_stg/medrisk_data/patient.csv"
       mlflow_experiment_name: "/Shared/stg-medrisk-health-analytics"
       schedule_pause_status: "PAUSED"
 
@@ -208,11 +211,13 @@ targets:
 
     workspace:
       host: https://dbc-36a650e5-7029.cloud.databricks.com
+      profile: mlops-databricks
       root_path: /Shared/.bundle/${bundle.target}/${bundle.name}
 
     variables:
       environment: "prd"
       catalog: "workspace"           # ← set your production catalog name
       schema: "mlops_prd"            # ← set your production schema name
+      source_path: "/Volumes/workspace/mlops_prd/medrisk_data/patient.csv"
       mlflow_experiment_name: "/Shared/prd-medrisk-health-analytics"
       schedule_pause_status: "UNPAUSED"

@@ -19,6 +19,8 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+from mlflow.pyfunc import PythonModel
+
 from medrisk_health_analytics.mlflow.pyfunc_model import MedRiskPyFuncModel
 
 # ---------------------------------------------------------------------------
@@ -63,6 +65,9 @@ def _build_artifacts(pipeline, tmp_dir: str) -> dict:
 
 
 class TestMedRiskPyFuncModel:
+    def test_is_mlflow_python_model(self):
+        assert issubclass(MedRiskPyFuncModel, PythonModel)
+
     def test_load_context_deserializes_pipeline(self, full_df, logger):
         pipeline = _make_pipeline_mock(full_df)
 

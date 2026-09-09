@@ -120,7 +120,7 @@ class LightGBMModel(BaseBoostingModel):
         self._model.booster_.save_model(path)
 
     @classmethod
-    def load(cls, path: str, task_type: str = "binary_classification") -> "LightGBMModel":
+    def load(cls, path: str, task_type: str = "binary_classification") -> LightGBMModel:
         """
         Deserialize a model from disk.
 
