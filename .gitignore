@@ -1,4 +1,15 @@
 __pycache__
+.DS_Store
 # Poetry / packaging
 dist/
 *.egg-info/
+.ruff_cache
+.mypy_cache
+.pytest_cache
+.venv
+.coverage
+/data/
+/logs/*.log
+!/logs/.gitkeep
+.databricks/
+.vscode

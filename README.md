@@ -1,406 +1,210 @@
-# medrisk-features
+# MedRisk Health Analytics
 
-![CI](https://github.com/rostandsurel/medrisk-features/actions/workflows/ci.yml/badge.svg)
-![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+![CI](https://github.com/Manda404/medrisk-health-analytics/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
+![Version](https://img.shields.io/badge/version-0.4.1-orange)
 
-**medrisk-features** is a production-ready Python package for **medical, metabolic, behavioral and lifestyle feature engineering**, specifically designed for **explainable machine learning risk models** in healthcare analytics.
+MedRisk Health Analytics est un package Python qui prépare des données de
+patients, construit des variables métier et entraîne un modèle de classification
+du risque de diabète. Le projet peut être exécuté localement ou dans un workflow
+MLOps Databricks.
 
-Built with a strong emphasis on **clinical interpretability**, **data leakage prevention**, and **production robustness**, this package bridges the gap between healthcare domain expertise and modern ML engineering practices.
+> Ce projet sert à l’analyse et à l’apprentissage. Il ne remplace pas un avis
+> médical et ne doit pas être utilisé seul pour établir un diagnostic.
 
----
+## Problématique
 
-## 🎯 Use Cases
+Le fichier `data/patient.csv` contient des mesures cliniques, des informations
+démographiques, des antécédents et des habitudes de vie. La colonne
+`diagnosed_diabetes` indique la classe que le modèle doit apprendre à prédire.
 
-- **Diabetes risk prediction** – glucose metabolism, insulin resistance, metabolic syndrome
-- **Cardiometabolic risk modeling** – lipid profiles, blood pressure, BMI interactions
-- **Preventive health analytics** – lifestyle factors, behavioral patterns, population screening
-- **Insurance underwriting** – actuarial risk assessment with medical features
-- **Clinical decision support** – interpretable features for healthcare AI systems
+Utiliser directement ce fichier pose plusieurs problèmes :
 
----
+- la qualité des données doit être vérifiée avant l’entraînement ;
+- une mesure isolée représente parfois mal le risque métabolique ;
+- les transformations doivent rester identiques entre entraînement et prédiction ;
+- `diabetes_risk_score` et `diabetes_stage` révèlent directement le diagnostic et
+  provoqueraient une fuite de cible ;
+- un modèle ne doit être publié qu’après une évaluation sur des données séparées ;
+- les nouvelles données doivent être surveillées pour détecter une dérive.
 
-## ✨ Why medrisk-features?
+Le package rassemble ces règles dans des classes réutilisables. Les notebooks
+Databricks servent uniquement à orchestrer le même code sur les tables Unity
+Catalog.
 
-### 🧠 **Clinically Grounded**
-Every feature is based on established medical research and clinical guidelines (ADA, WHO, ESC standards).
-
-### 🏗️ **Production-Ready Architecture**
-- Modular design with clear separation of concerns
-- Schema validation with actionable error messages
-- Comprehensive logging via Loguru
-- CI/CD integration with GitHub Actions
-- Full test coverage with pytest
-
-### 🔐 **Data Leakage Prevention**
-Automatic detection and removal of target-leaking variables to ensure model generalization.
-
-### 🧪 **Battle-Tested**
-Unit-tested feature transformations with edge case handling and numerical stability checks.
-
-### 📊 **ML Pipeline Compatible**
-Seamlessly integrates with:
-- scikit-learn pipelines
-- XGBoost, LightGBM, CatBoost
-- Kaggle notebooks
-- MLflow tracking
-- Production deployment environments
-
----
-
-## 🧬 Feature Engineering Pipeline
-
-The package follows a **medically coherent feature hierarchy**:
-
-### 1. **Preprocessing Layer**
-- Categorical variable harmonization
-- Target leakage detection and removal
-- Missing value strategies
-
-### 2. **Demographics Features**
-- `age_group` – flexible binning strategies (detailed/simple/senior)
-- `socioeconomic_vulnerability` – composite risk indicator
-
-### 3. **Medical (Clinical) Features**
-- `glucose_category` – ADA-based fasting glucose classification
-- `hba1c_category` – glycemic control stratification
-- `bmi_category` – WHO BMI classification
-- `bp_category` – blood pressure staging (JNC guidelines)
-- `homa_ir` – insulin resistance index
-- `metabolic_syndrome_flag` – ATP III diagnostic criteria
-
-### 4. **Clinical Interactions**
-- `lipid_ratio_hdl_ldl` – atherogenic index
-- `cholesterol_hdl_ratio` – cardiovascular risk marker
-- `bmi_glucose_interaction` – obesity-glycemia synergy
-- `glucose_variability` – glycemic instability indicator
-
-### 5. **Advanced Metabolic Features**
-- `glycemic_load` – carbohydrate metabolism burden
-- `dyslipidemia_flag` – lipid disorder indicator
-- `cardiometabolic_burden` – composite risk score
-- `blood_pressure_ratio` – systolic/diastolic imbalance
-
-### 6. **Behavioral Features**
-- `physical_activity_adequate` – WHO activity recommendations
-- `screen_sleep_imbalance` – sedentary behavior proxy
-- `sedentary_risk` – multi-factor inactivity flag
-
-### 7. **Lifestyle Features**
-- `lifestyle_score` – global health behavior index (0–10 scale)
-- `sleep_efficiency` – sleep quality metric
-
----
-
-## 📦 Installation
-
-### From GitHub (recommended)
+## Installation locale
 
 ```bash
-pip install git+https://github.com/Manda404/medrisk-features.git
-```
-
-### With Poetry
-
-```bash
-poetry add git+https://github.com/Manda404/medrisk-features.git
-```
-
-### Development Installation
-
-```bash
-git clone https://github.com/Manda404/medrisk-features.git
-cd medrisk-features
 poetry install
 ```
 
----
+## Charger, analyser et préparer les données
 
-## 🚀 Quick Start
-
-### Basic Usage
+Cet exemple utilise le fichier réellement présent dans le dépôt et les classes
+publiques du package :
 
 ```python
-import pandas as pd
-from medrisk_features import FeatureEngineeringPipeline
-
-# Load your health data
-df = pd.read_csv("patient_data.csv")
-
-# Initialize pipeline with validation
-pipeline = FeatureEngineeringPipeline(
-    age_group_strategy="detailed",  # "simple", "detailed", or "senior"
-    validate_schema=True,
+from medrisk_health_analytics import (
+    DatasetAnalyzer,
+    DatasetLoader,
+    DatasetPreprocessor,
+    FeatureEngineeringPipeline,
 )
 
-# Transform data
-df_features = pipeline.transform(df)
+# Charger le fichier data/patient.csv dans un DataFrame Pandas.
+data = DatasetLoader().load("data/patient.csv")
 
-# Features are now ready for ML models
-print(df_features.columns.tolist())
+# Examiner sa taille, ses doublons, ses valeurs manquantes et sa cible.
+analysis = DatasetAnalyzer(
+    target_column="diagnosed_diabetes"
+).analyze(data)
+
+print(f"Nombre de patients : {analysis.rows}")
+print(f"Nombre de colonnes : {analysis.columns}")
+print(f"Nombre de doublons : {analysis.duplicate_rows}")
+print(f"Valeurs manquantes : {analysis.missing_values}")
+print(f"Distribution cible : {analysis.target_distribution}")
+
+# Nettoyer les catégories, les valeurs infinies et les doublons.
+clean_data = DatasetPreprocessor().transform(data)
+
+# Créer les variables métier tout en conservant la cible.
+features = FeatureEngineeringPipeline().transform(
+    clean_data,
+    target_column="diagnosed_diabetes",
+)
+
+print(features.head())
 ```
 
-### Integration with scikit-learn
+`FeatureEngineeringPipeline` crée notamment la pression artérielle moyenne, la
+pression pulsée, le ratio triglycérides/HDL, l’indice TyG, l’indice TyG-IMC et des
+indicateurs liés aux antécédents, au sommeil et à l’activité physique.
+
+Les colonnes de fuite `diabetes_risk_score` et `diabetes_stage` sont retirées des
+variables utilisables par le modèle.
+
+## Vérifier le contrat des données
+
+L’exemple suivant réutilise la variable `data` créée précédemment :
 
 ```python
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from medrisk_health_analytics import DataQualityValidator
 
-model_pipeline = Pipeline([
-    ('features', FeatureEngineeringPipeline()),
-    ('scaler', StandardScaler()),
-    ('classifier', RandomForestClassifier())
-])
+quality = DataQualityValidator(
+    required_columns=(
+        "age",
+        "glucose_fasting",
+        "bmi",
+        "diagnosed_diabetes",
+    ),
+    target_column="diagnosed_diabetes",
+    max_missing_ratio=0.05,
+).validate(data)
 
-model_pipeline.fit(X_train, y_train)
+print(quality.passed)
+print(quality.violations)
+
+# Déclenche une erreur explicite si le contrat n'est pas respecté.
+quality.raise_for_failure()
 ```
 
-### Kaggle Notebook Example
+## Entraîner un modèle
+
+L’exemple réutilise `features`, construit dans le premier exemple :
 
 ```python
-# Works seamlessly in Kaggle environments
-import pandas as pd
-from medrisk_features import FeatureEngineeringPipeline
+from medrisk_health_analytics import ModelTrainer
 
-df = pd.read_csv('/kaggle/input/dataset/train.csv')
-pipeline = FeatureEngineeringPipeline(validate_schema=True)
-df_transformed = pipeline.transform(df)
+trainer = ModelTrainer(
+    target_column="diagnosed_diabetes",
+    model_type="xgboost",
+    experiment_name="/Shared/medrisk-health-analytics",
+    run_name="medrisk-xgboost",
+)
+
+result = trainer.fit(features)
+
+print(f"Run MLflow : {result.run_id}")
+print(f"Modèle : {result.model_uri}")
+print(result.metrics)
 ```
 
----
+Les valeurs acceptées pour `model_type` sont celles implémentées dans le package :
 
-## 🔐 Schema Validation
+```text
+xgboost
+catboost
+lightgbm
+logistic_regression
+random_forest
+gradient_boosting
+```
 
-The pipeline enforces a **minimum required schema** to prevent silent failures:
+L’entraînement sépare automatiquement une partie des données pour la validation.
+Il enregistre dans MLflow la configuration, les métriques, les variables, le
+préprocesseur, le modèle, sa signature et un exemple d’entrée.
 
-### Required Columns
-- `Age` – patient age in years
-- `glucose_fasting` – fasting blood glucose (mg/dL)
-- `bmi` – body mass index (kg/m²)
+## Prédire avec le modèle entraîné
 
-### Optional but Recommended
-- `hba1c`, `insulin_fasting` – for advanced metabolic features
-- `hdl_cholesterol`, `ldl_cholesterol`, `total_cholesterol` – for lipid features
-- `systolic_bp`, `diastolic_bp` – for cardiovascular features
-- `physical_activity_minutes`, `sleep_hours`, `screen_time_hours` – for lifestyle features
-
-### Validation Example
+Cet exemple utilise directement `result.model_uri`. Il retire la cible de cinq
+lignes du DataFrame `features` avant la prédiction :
 
 ```python
-try:
-    pipeline = FeatureEngineeringPipeline(validate_schema=True)
-    df_features = pipeline.transform(df)
-except SchemaValidationError as e:
-    print(f"Schema Error: {e}")
-    # Output: Missing required columns: ['glucose_fasting', 'bmi']
+from medrisk_health_analytics import ModelPredictor
+
+patients_to_score = features.drop(
+    columns=["diagnosed_diabetes"]
+).head(5)
+
+predictor = ModelPredictor(result.model_uri)
+predictions = predictor.predict(patients_to_score)
+
+print(predictions)
 ```
 
-Disable validation for flexibility (not recommended in production):
+La sortie contient la probabilité estimée, une priorité et les informations de
+version du modèle.
 
-```python
-pipeline = FeatureEngineeringPipeline(validate_schema=False)
+## Exécuter le projet sur Databricks
+
+La source utilisée par le workflow se trouve dans :
+
+```text
+/Volumes/workspace/mlops_dev/medrisk_data/patient.csv
 ```
 
----
-
-## 🧪 Testing
-
-### Run Unit Tests
+Les tables et le modèle sont enregistrés dans `workspace.mlops_dev`.
 
 ```bash
-poetry run pytest -v
+databricks bundle validate -t dev
+databricks bundle deploy -t dev
+databricks bundle run medrisk_classification_pipeline -t dev
 ```
 
-### With Coverage Report
+Le job exécute quatre tâches dans cet ordre :
+
+```text
+prepare_data
+    → train_validate_promote
+    → batch_inference
+    → monitor_data_drift
+```
+
+Le candidat est évalué sur une table holdout séparée. Il reçoit l’alias
+`Champion` uniquement s’il respecte les seuils configurés. La dernière tâche
+compare les données de scoring à la référence d’entraînement et enregistre les
+mesures de dérive dans une table Delta.
+
+## Vérifier le projet
 
 ```bash
-poetry run pytest --cov=medrisk_features --cov-report=html
+make check
 ```
 
-### Test Specific Modules
+Cette commande exécute les tests, le lint, le formatage, le contrôle des types et
+la construction du package.
 
-```bash
-poetry run pytest tests/test_medical.py -v
-poetry run pytest tests/test_pipeline.py::test_full_pipeline -v
-```
+## Licence
 
----
-
-## 🏗️ Project Structure
-
-```
-medrisk-features/
-│
-├── medrisk_features/           # Main package
-│   ├── __init__.py
-│   │
-│   ├── pipeline/               # Orchestration layer
-│   │   ├── __init__.py
-│   │   └── feature_engineering_pipeline.py
-│   │
-│   ├── preprocessing/          # Data cleaning
-│   │   ├── __init__.py
-│   │   ├── categorical_cleaning.py
-│   │   └── leakage.py
-│   │
-│   ├── features/               # Feature modules
-│   │   ├── __init__.py
-│   │   ├── demographics.py
-│   │   ├── medical.py
-│   │   ├── clinical.py
-│   │   ├── metabolic.py
-│   │   ├── behavioral.py
-│   │   └── lifestyle.py
-│   │
-│   ├── validation/             # Schema validation
-│   │   ├── __init__.py
-│   │   └── schema.py
-│   │
-│   └── logging/                # Logging utilities
-│       ├── __init__.py
-│       └── default_logger.py
-│
-├── tests/                      # Test suite
-│   ├── test_demographics.py
-│   ├── test_medical.py
-│   ├── test_pipeline.py
-│   └── conftest.py
-│
-├── .github/workflows/          # CI/CD
-│   └── ci.yml
-│
-├── pyproject.toml              # Dependencies & metadata
-├── README.md
-└── .gitignore
-```
-
----
-
-## 🪵 Logging
-
-Professional logging via **Loguru** with context-aware output:
-
-```python
-from medrisk_features.logging import get_logger
-
-logger = get_logger("custom-pipeline")
-logger.info("Starting feature engineering")
-logger.warning("Missing optional column: hba1c")
-logger.error("Schema validation failed")
-```
-
-**Features:**
-- Notebook-friendly colorized output
-- Kaggle-compatible logging
-- Production-ready structured logs
-- Configurable log levels
-
----
-
-## 🎯 Design Philosophy
-
-### Core Principles
-
-1. **Explainability First** – Every feature has clear clinical meaning
-2. **No Silent Failures** – Explicit validation with actionable errors
-3. **Separation of Concerns** – Modular architecture for maintainability
-4. **Production-Minded** – Built for real-world deployment
-5. **ML-Friendly** – Designed for model training, not just EDA
-
-### What This Package **Intentionally Avoids**
-
-- ❌ Hard coupling to specific ML frameworks
-- ❌ Hidden data assumptions and transformations
-- ❌ Over-engineered dependencies
-- ❌ Black-box feature engineering
-- ❌ Unstable numerical operations
-
----
-
-## 🧠 Target Audience
-
-- **Data Scientists** building healthcare ML models
-- **ML Engineers** deploying production risk models
-- **Healthcare Analytics Teams** requiring interpretable features
-- **Insurance Analysts** working on underwriting models
-- **Students & Researchers** developing serious ML portfolios
-- **Applied AI Projects** in health, pharma, and wellness
-
----
-
-## 🛣️ Roadmap
-
-### Planned Features
-
-- [ ] 📦 PyPI release for `pip install medrisk-features`
-- [ ] 📊 MLflow experiment tracking integration
-- [ ] 🔍 SHAP explainability helpers
-- [ ] ⚙️ YAML-based configuration files
-- [ ] 🧪 Property-based testing (Hypothesis)
-- [ ] 📐 Great Expectations schema contracts
-- [ ] 🌐 Multi-language support (French medical terms)
-- [ ] 📈 Feature importance analysis utilities
-- [ ] 🔄 Online learning compatibility
-
-### Contributions Welcome
-
-Open to contributions! See `CONTRIBUTING.md` for guidelines.
-
----
-
-## 👤 Author
-
-**Rostand Surel**  
-📧 [rostandsurel@yahoo.com](mailto:rostandsurel@yahoo.com)  
-🔗 [GitHub](https://github.com/Manda404)
-
----
-
-## 📄 License
-
-MIT License – Free to use, modify, and distribute.
-
-See `LICENSE` file for details.
-
----
-
-## 🙏 Acknowledgments
-
-This project synthesizes best practices from:
-- Clinical guidelines (ADA, WHO, ESC, JNC)
-- ML engineering patterns (scikit-learn, MLOps)
-- Healthcare AI research literature
-- Production ML system design
-
----
-
-## ⭐ Support This Project
-
-If **medrisk-features** helps your work:
-- ⭐ Star the repository
-- 🐛 Report issues or request features
-- 🤝 Contribute improvements
-- 📢 Share with your network
-
-Built with ❤️ for the healthcare ML community.
-
----
-
-## 📚 Citation
-
-If you use this package in research or production, please cite:
-
-```bibtex
-@software{medrisk_features,
-  author = {Surel, Rostand},
-  title = {medrisk-features: Clinical Feature Engineering for Healthcare ML},
-  year = {2025},
-  url = {https://github.com/Manda404/medrisk-features}
-}
-```
-
----
-
-**Questions?** Open an issue or contact [rostandsurel@yahoo.com](mailto:rostandsurel@yahoo.com)
+MIT — consultez [LICENSE](LICENSE).

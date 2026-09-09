@@ -1,0 +1,68 @@
+name: Release
+
+env:
+  POETRY_VERSION: "2.2.1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install Poetry
+        run: python -m pip install "poetry==${POETRY_VERSION}"
+      - name: Verify semantic version tag
+        shell: bash
+        run: |
+          [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(poetry version --short)" = "${GITHUB_REF_NAME#v}"
+      - name: Install locked dependencies
+        run: poetry install --no-interaction --all-extras
+      - name: Run quality checks
+        run: |
+          poetry check --lock
+          poetry run ruff check src/ tests/
+          poetry run black --check src/ tests/
+          poetry run mypy src/medrisk_health_analytics
+          poetry run pytest
+
+  publish:
+    name: Build and publish to PyPI
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install Poetry
+        run: python -m pip install "poetry==${POETRY_VERSION}"
+      - name: Verify version matches tag
+        run: |
+          test "$(poetry version --short)" = "${GITHUB_REF_NAME#v}"
+      - name: Build distributions
+        run: poetry build
+      - name: Publish with PyPI trusted publishing
+        uses: pypa/gh-action-pypi-publish@release/v1

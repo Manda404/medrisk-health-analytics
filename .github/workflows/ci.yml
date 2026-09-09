@@ -1,37 +1,223 @@
 name: CI
 
+permissions:
+  contents: read
+
+env:
+  POETRY_VERSION: "2.2.1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main"]
+
+# Cancel in-progress runs on the same branch when a new push arrives.
+# Avoids wasting CI minutes on stale commits.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  # ---------------------------------------------------------------------------
+  # Lint & format check
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint & Format
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Set up Python
+      - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.14"
 
       - name: Install Poetry
-        run: |
-          pip install poetry
+        run: python -m pip install "poetry==${POETRY_VERSION}"
 
       - name: Configure Poetry
         run: |
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
 
-      - name: Install dependencies
-        run: |
-          poetry install
+      # Cache the virtual environment to avoid re-installing on every run.
+      # Cache key includes OS, Python version, and pyproject.toml hash.
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-lint-${{ runner.os }}-py314-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
+          restore-keys: |
+            venv-lint-${{ runner.os }}-py314-
 
-      - name: Run tests
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Validate package metadata and lock file
+        run: poetry check --lock
+
+      - name: Run ruff linter
+        run: poetry run ruff check src/ tests/
+
+      - name: Check notebook syntax
+        run: poetry run python -m compileall -q notebooks/
+
+      - name: Check black formatting
+        run: poetry run black --check src/ tests/
+
+
+  # ---------------------------------------------------------------------------
+  # Type checking
+  # ---------------------------------------------------------------------------
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install Poetry
+        run: python -m pip install "poetry==${POETRY_VERSION}"
+
+      - name: Configure Poetry
         run: |
-          poetry run pytest --cov=medrisk_features --cov-report=term-missing
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-typecheck-${{ runner.os }}-py314-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
+          restore-keys: |
+            venv-typecheck-${{ runner.os }}-py314-
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Run mypy
+        run: poetry run mypy src/medrisk_health_analytics
+
+
+  # ---------------------------------------------------------------------------
+  # Tests — matrix: Python 3.12 / 3.13 / 3.14
+  #
+  # Installs the full [boosting] + [explainability] extras so that all
+  # optional integrations (XGBoost, CatBoost, LightGBM, MLflow, SHAP)
+  # are exercised in the test suite.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Run tests only after lint passes — avoids wasting runner minutes
+    # on obviously broken code.
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        run: python -m pip install "poetry==${POETRY_VERSION}"
+
+      - name: Configure Poetry
+        run: |
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-test-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
+          restore-keys: |
+            venv-test-${{ runner.os }}-py${{ matrix.python-version }}-
+
+      # Install core + all optional extras so every code path is tested.
+      # --extras flags must match the names declared in pyproject.toml.
+      - name: Install dependencies with optional extras
+        run: |
+          poetry install --no-interaction \
+            --extras "mlflow xgboost catboost lightgbm explainability"
+
+      - name: Run tests with coverage
+        run: |
+          poetry run pytest \
+            --cov=medrisk_health_analytics \
+            --cov-report=term-missing \
+            --cov-report=xml
+
+      # Upload coverage only once (from Python 3.14 run) to avoid duplicates.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        if: matrix.python-version == '3.14'
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  build:
+    name: Build & Wheel Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install Poetry
+        run: python -m pip install "poetry==${POETRY_VERSION}"
+      - name: Build distributions
+        run: poetry build
+      - name: Install and import wheel
+        run: |
+          python -m venv /tmp/medrisk-wheel-test
+          /tmp/medrisk-wheel-test/bin/pip install dist/*.whl
+          /tmp/medrisk-wheel-test/bin/python -c "import medrisk_health_analytics; from medrisk_health_analytics.boosting.data import split_dataframe; print(medrisk_health_analytics.__version__)"
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install Poetry
+        run: python -m pip install "poetry==${POETRY_VERSION}"
+      - name: Install locked dependencies
+        run: poetry install --no-interaction --all-extras
+      - name: Audit installed dependencies
+        run: poetry run pip-audit --local --skip-editable
