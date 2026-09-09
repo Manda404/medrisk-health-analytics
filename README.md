@@ -82,8 +82,7 @@ pression pulsée, le ratio triglycérides/HDL, l’indice TyG, l’indice TyG-IM
 indicateurs liés aux antécédents, au sommeil et à l’activité physique.
 
 Les colonnes de fuite `diabetes_risk_score` et `diabetes_stage` sont retirées des
-variables utilisables par le modèle. Les transformations complètes sont décrites
-dans [FEATURE_ENGINEERING.md](docs/FEATURE_ENGINEERING.md).
+variables utilisables par le modèle.
 
 ## Vérifier le contrat des données
 
@@ -205,13 +204,6 @@ make check
 
 Cette commande exécute les tests, le lint, le formatage, le contrôle des types et
 la construction du package.
-
-## Documentation
-
-- [Architecture MLOps Databricks](docs/MLOPS_DATABRICKS.md)
-- [Variables métier](docs/FEATURE_ENGINEERING.md)
-- [Guide des notebooks](docs/NOTEBOOKS.md)
-- [Audit technique](docs/AUDIT.md)
 
 ## Licence
 
