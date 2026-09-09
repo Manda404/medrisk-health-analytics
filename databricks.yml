@@ -1,9 +1,9 @@
 # =============================================================
 # Databricks Asset Bundle configuration
-# Project: medrisk-health-analytics
+# Project: MedRisk Health Analytics
 #
 # This file defines the Databricks deployment configuration for
-# the medrisk-health-analytics MLOps project.
+# the MedRisk Health Analytics MLOps project.
 #
 # Purpose:
 #   - Package the Python project as a wheel using Poetry
@@ -12,7 +12,7 @@
 #   - Support reproducible deployments across dev, staging, and production
 #
 # Project context:
-#   medrisk-health-analytics is an End-to-End Data Science and MLOps
+#   MedRisk Health Analytics is an End-to-End Data Science and MLOps
 #   project for clinical feature engineering, risk classification and
 #   boosting model deployment using Python, MLflow, Poetry, and Databricks.
 #
@@ -81,8 +81,8 @@ variables:
 
   # ── Project identity ─────────────────────────────────────────────────
   project_name:
-    description: Logical project name used in Databricks resource names
-    default: "medrisk-health-analytics"
+    description: Human-readable project name used in Databricks resources
+    default: "MedRisk Health Analytics"
 
   package_name:
     description: >

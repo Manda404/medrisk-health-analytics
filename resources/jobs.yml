@@ -1,7 +1,7 @@
 resources:
   jobs:
     medrisk_classification_pipeline:
-      name: ${var.project_name}-${var.environment}-pipeline
+      name: ${var.project_name} - ${var.environment} - pipeline
       description: Validate data, train and promote a candidate, infer, and monitor drift.
       max_concurrent_runs: 1
       queue:
