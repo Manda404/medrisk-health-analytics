@@ -29,12 +29,12 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Python 3.14
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
@@ -49,7 +49,7 @@ jobs:
       # Cache the virtual environment to avoid re-installing on every run.
       # Cache key includes OS, Python version, and pyproject.toml hash.
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .venv
           key: venv-lint-${{ runner.os }}-py314-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
@@ -81,12 +81,12 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Python 3.14
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
@@ -99,7 +99,7 @@ jobs:
           poetry config virtualenvs.in-project true
 
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .venv
           key: venv-typecheck-${{ runner.os }}-py314-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
@@ -135,12 +135,12 @@ jobs:
         python-version: ["3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -153,7 +153,7 @@ jobs:
           poetry config virtualenvs.in-project true
 
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .venv
           key: venv-test-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
@@ -176,7 +176,7 @@ jobs:
 
       # Upload coverage only once (from Python 3.14 run) to avoid duplicates.
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         if: matrix.python-version == '3.14'
         with:
           files: ./coverage.xml
@@ -188,10 +188,10 @@ jobs:
     timeout-minutes: 15
     needs: [lint, typecheck, test]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - name: Install Poetry
@@ -209,10 +209,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - name: Install Poetry
